@@ -1,0 +1,54 @@
+SOPHENIC V5.1 — RAPPORT DE VALIDATION
+=====================================
+Date de correction : 2026-08-15
+Version du projet : 1.2.1
+
+VALIDATIONS RÉUSSIES DANS LE SANDBOX
+------------------------------------
+[OK] node scripts/verify-source.mjs
+     - 17 fichiers critiques présents.
+     - UI locale privilégiée, isolation renderer, yolo désactivé.
+     - bridges Hermes approval/clarify/sudo/secret/reasoning présents.
+     - toolset Hermes hermes-cli présent.
+     - routage Code/PC/outils, reprise de truncation, OpenRouter séquentiel et Ollama vérifiés statiquement.
+
+[OK] Analyse syntaxique de src/, electron/, scripts/
+     - 89 fichiers TS/TSX/JS/MJS/CJS parsés.
+     - 0 erreur de syntaxe.
+
+[OK] Smoke tests de routage / fiabilité
+     - « crée un site web de voyage comme skyscanner avec des billet fictif » -> Hermes Code.
+     - « ok alors maintenant crée le code » -> Hermes Code.
+     - « m en fou n herberge pas le site créé un localhost toi » -> Hermes Code.
+     - « ouvre chrome » -> Hermes Computer Use.
+     - « prends une capture d écran » -> Hermes Computer Use.
+     - terminal/fichiers/navigateur/cron -> Hermes agentique.
+     - question explicative / poème -> chat direct.
+     - erreur « Response remained truncated after 4 continuation attempts » détectée.
+     - waiting_for_input n’est pas traité comme terminé.
+     - completed est traité comme terminé.
+     - failed/error/cancelled/interrupted remonte comme erreur.
+     - résultat : 0 échec.
+
+[OK] Smoke test Ollama
+     - modèle d'embedding écarté.
+     - modèle chat qwen3 prioritaire dans le scénario de test.
+
+[OK] git diff --check équivalent
+     - aucune erreur d’espaces significative détectée.
+
+LIMITES DE VALIDATION
+---------------------
+[NON EXÉCUTÉ] Build complet Next/Electron/NSIS.
+Raison : les dépendances npm ne sont pas présentes et leur installation complète a été bloquée par le réseau/timeout du sandbox.
+
+[NON EXÉCUTÉ] Actions réelles Windows Computer Use (clic, clavier, fenêtres, applications).
+Raison : l’environnement de correction est Linux et n’a pas accès à la machine Windows cible ni à son bureau.
+
+[NON EXÉCUTÉ] Appels réels avec les clés OpenRouter/Ollama/Hermes de l’utilisateur.
+Raison : les secrets et l’installation locale de la machine cible ne sont pas disponibles dans le sandbox.
+
+CONCLUSION
+----------
+Les chemins de code vérifiables ici sont corrigés et les contrôles statiques/smoke tests passent.
+La dernière validation doit être faite sur Windows avec `npm install`, puis `npm run typecheck`, `npm run lint`, `npm run build`, et des essais réels Hermes Computer Use.

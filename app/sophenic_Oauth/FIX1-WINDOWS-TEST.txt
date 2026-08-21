@@ -1,0 +1,13 @@
+SOPHENIC 5.4.0 AI ROUTER - FIX1
+
+Correctif appliqué après un build réel sous Windows :
+- le TEST 16 de persistance de langue isolait seulement HOME ;
+- le runtime Windows utilise LOCALAPPDATA\Sophenic\settings.json ;
+- le test isole maintenant HOME et LOCALAPPDATA et vérifie le chemin propre à Windows.
+
+Validation après correctif :
+- verify-source : OK (50 fichiers critiques)
+- test-sophenic : OK (19 groupes / 90+ assertions)
+- simulation ciblée du chemin Windows LOCALAPPDATA\Sophenic\settings.json : OK
+
+Ce correctif ne modifie pas les fonctions utilisateur du routeur IA.

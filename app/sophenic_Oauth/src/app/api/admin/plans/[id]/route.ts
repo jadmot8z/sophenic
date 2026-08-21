@@ -1,0 +1,5 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getApiUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;const {user,supabase}=await getApiUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});const {data:p}=await supabase.from("profiles").select("role").eq("id",user.id).single();if(p?.role!=="admin")return NextResponse.json({error:"Forbidden"},{status:403});const body=z.object({dailyTokenLimit:z.number().int().positive(),monthlyTokenLimit:z.number().int().positive(),monthlyCostLimitUsd:z.number().positive()}).parse(await request.json());const admin=createAdminClient();const {error}=await admin.from("plans").update({daily_token_limit:body.dailyTokenLimit,monthly_token_limit:body.monthlyTokenLimit,monthly_cost_limit_usd:body.monthlyCostLimitUsd}).eq("id",id);return error?NextResponse.json({error:error.message},{status:400}):NextResponse.json({ok:true});}

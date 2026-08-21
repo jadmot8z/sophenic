@@ -1,0 +1,21 @@
+SOPHENIC 5.4.0 — BUILD WINDOWS
+
+METHODE RECOMMANDEE (ZIP DANS TELECHARGEMENTS)
+1. Place SOPHENIC-V5.4.0-AGENTIC-THINKING-PRO.zip dans le dossier Téléchargements.
+2. Ouvre Windows PowerShell en tant qu'administrateur.
+3. Ouvre POWERSHELL-A-COLLER.txt, copie tout le contenu et colle-le dans PowerShell.
+4. Le script extrait le bon ZIP, exécute les tests/builds et appelle electron-builder/NSIS.
+
+RESULTAT ATTENDU
+%USERPROFILE%\Downloads\Sophenic Setup.exe
+
+METHODE SOURCE DEJA EXTRAITE
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-sophenic.ps1
+
+PREREQUIS
+- Windows 10/11 x64
+- Node.js + npm accessibles dans PATH
+- Internet pour npm install si node_modules n'est pas déjà disponible
+- Ollama facultatif pour le fallback local à l'exécution
+
+Le script refuse une source différente de la version 5.4.0 et ne produit pas de cible portable.

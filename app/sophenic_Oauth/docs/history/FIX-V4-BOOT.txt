@@ -1,0 +1,13 @@
+NOTE DE MIGRATION V4 -> V5
+
+La V5 ne bloque plus le chat normal si Hermes n'est pas prêt :
+- le chat texte utilise directement OpenRouter en streaming ;
+- Hermes est démarré uniquement pour Code, les actions PC et les intégrations agentiques ;
+- si Hermes manque, Sophenic peut le provisionner à la demande ;
+- Computer Use est installé/configuré lors de la première action PC autorisée si nécessaire.
+
+Build V5 :
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-sophenic.ps1
+
+Résultat :
+%USERPROFILE%\Downloads\Sophenic Setup.exe

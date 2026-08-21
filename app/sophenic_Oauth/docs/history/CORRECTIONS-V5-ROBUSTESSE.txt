@@ -1,0 +1,94 @@
+SOPHENIC V5.1 — CORRECTIONS HERMES / CHAT / CODE / OLLAMA
+==========================================================
+
+Scénario utilisateur corrigé
+----------------------------
+La demande :
+  « crée un site web de voyage comme Skyscanner avec des billets fictifs »
+était auparavant envoyée au chat OpenRouter normal. Le modèle pouvait expliquer le code,
+mais il ne recevait pas le contrôle Hermes du dossier/terminal. Une relance pouvait ensuite
+finir sur :
+  « Response remained truncated after 4 continuation attempts »
+ou sur un échec OpenRouter 402 suivi d'un modèle Ollama sans texte.
+
+Corrections principales
+-----------------------
+1. ROUTAGE CHAT -> HERMES CODE
+   - Les demandes de création/modification/test de site, app, projet, fichiers, script,
+     localhost, backend/frontend, npm/node/python passent maintenant par Hermes Code.
+   - Les autres demandes clairement agentiques visant terminal, fichiers, navigateur,
+     plugins/skills/MCP, cron, applications locales, etc. passent aussi par Hermes.
+   - Les actions PC utilisent le meilleur modèle orienté tools détecté plutôt que de
+     dépendre d'un modèle de chat éventuellement incapable d'appeler des outils.
+   - Hermes reçoit un vrai dossier de travail et l'instruction d'agir sur les fichiers,
+     lancer les commandes/tests et vérifier le localhost au lieu de seulement expliquer.
+
+2. SORTIES HERMES TRONQUÉES
+   - Détection des erreurs de truncation / continuation / finish_reason=length.
+   - Raisonnement Hermes réglé à « minimal » par session pour laisser davantage de budget
+     à la réponse visible et aux appels d'outils.
+   - Pour les tâches Code uniquement, reprise automatique sur jusqu'à deux modèles de
+     secours en inspectant d'abord l'état réel du dossier afin de ne pas recommencer les
+     modifications déjà réussies.
+   - Le polling n'interrompt plus un tour uniquement parce que le texte est resté stable
+     quelques secondes : il attend un état terminal réel et aucune demande interactive.
+   - Les états Hermes failed/error/cancelled/interrupted remontent maintenant immédiatement
+     au lieu de laisser l’interface attendre plusieurs minutes.
+
+3. OUTILS HERMES COMPLETS
+   - HERMES_TUI_TOOLSETS utilise maintenant « hermes-cli » (jeu standard interactif complet)
+     au lieu du sous-ensemble « coding,computer_use ».
+   - Les demandes approval / clarify / sudo / secret sont reliées à l'interface Sophenic.
+   - Annuler sudo/secret répond explicitement à la requête au lieu de laisser Hermes bloqué.
+
+4. ÉVÉNEMENTS / CONFIDENTIALITÉ
+   - L'interface ne copie plus tous les événements contenant assistant/message/token/delta.
+   - Seuls les événements de réponse visibles explicites sont rendus dans le chat.
+   - Les événements reasoning/thinking/analysis restent exclus.
+
+5. OPENROUTER
+   - Les modèles de secours sont essayés séquentiellement avant le fallback Ollama.
+   - Les 402/408/429/5xx et erreurs réseau peuvent passer au modèle suivant tant qu'aucun
+     texte n'a été affiché, évitant les doublons.
+   - Budget de sortie du chat porté à 3200 tokens pour les demandes normales.
+
+6. OLLAMA LOCAL
+   - Le fallback ne choisit plus naïvement le plus petit modèle installé (qui pouvait être
+     un modèle d'embedding/reranking incapable de discuter).
+   - Priorité aux modèles chat/instruct légers et jusqu'à 3 candidats locaux.
+   - « think: false » + num_predict=2048 évitent qu'un modèle de raisonnement consomme toute
+     sa sortie dans un champ de pensée sans texte visible.
+
+7. MODÈLES POUR LE CODE
+   - Les modèles annonçant la prise en charge des tools/tool_choice sont prioritaires.
+   - Un modèle Code concret est choisi même si la lecture du niveau de compte OpenRouter
+     échoue ; le routeur générique openrouter/free reste un secours.
+
+8. CONNEXION GATEWAY
+   - Une RPC timeout/send-error ferme maintenant le WebSocket potentiellement bloqué afin
+     que Sophenic se reconnecte proprement au prochain appel.
+
+9. BUGS DE COMPILATION / TYPES
+   - Suppression du double state imageModel qui déclarait deux fois la même constante.
+   - Correction de l'inférence TypeScript de la Map des modèles image OpenRouter (`as const`).
+
+Tests effectués dans le sandbox de correction
+---------------------------------------------
+- scripts/verify-source.mjs : OK.
+- Analyse syntaxique TypeScript/TSX/JS de tous les fichiers sous src/, electron/, scripts/ : OK.
+- 89 fichiers parsés, 0 erreur de syntaxe.
+- Vérifications statiques des ponts Hermes, sécurité IPC, absence de yolo, routage Code,
+  reprise truncation, sudo/secret, toolset complet, OpenRouter séquentiel et fallback Ollama.
+- Smoke tests sémantiques du routage (phrases exactes du scénario, PC, outils Hermes),
+  de la détection de truncation/états Hermes : 0 échec.
+- Smoke test de sélection Ollama : les modèles embedding sont exclus et un modèle chat
+  (qwen3 dans le test) est prioritaire : OK.
+- Vérification des espaces du diff : OK.
+
+Limites de validation
+---------------------
+Le sandbox Linux de correction ne peut pas exécuter de vraies actions Windows Computer Use,
+ni reproduire ton installation Hermes/Ollama/OpenRouter et tes clés. L'installation npm complète
+a aussi été bloquée par le réseau du sandbox, donc le build Electron/NSIS final doit être exécuté
+sur Windows avec les dépendances installées. Les chemins de code vérifiables statiquement ont été
+contrôlés, mais les actions PC réelles doivent encore être validées sur la machine cible.

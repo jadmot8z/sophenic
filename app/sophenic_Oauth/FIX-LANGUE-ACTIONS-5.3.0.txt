@@ -1,0 +1,15 @@
+SOPHENIC V5.3.0 - ACTION ROUTER + LANGUE + IDENTITE + WINDOWS
+
+CORRECTIFS PRINCIPAUX
+- Action Router local prioritaire avant Chat / Code / Hermes.
+- Ouverture et fermeture d'applications avec vérification du processus Windows.
+- Spotify local sans LLM: recherche/lecture + PLAY/PAUSE/SUIVANT/PRECEDENT.
+- Volume Windows via Core Audio IAudioEndpointVolume.
+- Heure/date système locales.
+- Ouverture Téléchargements/Bureau + création simple dossier/fichier hors Sophenic Code.
+- Mémoire de langue persistante et verrouillable à travers OpenRouter/Ollama/Hermes/Code/Image.
+- Identité runtime: assistant = Sophenic; moteur réel annoncé séparément.
+- Hermes Smart Approval forcé; yolo/off et autorisation permanente UI interdits.
+
+VALIDATION
+Voir TEST-REPORT.md pour distinguer tests exécutés et validations Windows restant à lancer sur une vraie machine Windows.

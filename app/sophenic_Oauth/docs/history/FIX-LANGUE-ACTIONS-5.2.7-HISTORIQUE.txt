@@ -1,0 +1,25 @@
+SOPHENIC V5.2.7 - LANGUE + ACTIONS PC
+
+CAS CORRIGES
+1. "tu peux ouvrir whatsapp"
+   - route Agent PC
+   - ouverture native WhatsApp en premier
+   - fallback WhatsApp Web simple
+   - aucun chrome://inspect / remote debugging pour une simple ouverture
+
+2. Français persistant
+   - détection du français
+   - "parle français" mémorisé dans settings.json
+   - politique injectée dans OpenRouter, Ollama et Hermes
+   - les messages d’outils en anglais doivent être traduits
+
+3. Plugins autorisés
+   - passage Hermes de manual vers smart approvals
+   - faible risque auto-approuvé par Hermes
+   - yolo/off reste interdit
+   - consentements réellement imposés par Windows/OAuth/service tiers restent distincts
+
+TESTS SOURCE
+- 10/10 tests Sophenic
+- 29 fichiers critiques verify-source
+- syntaxe TS/TSX 87 fichiers

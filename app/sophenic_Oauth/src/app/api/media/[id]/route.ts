@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { getApiUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;const {user,supabase}=await getApiUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});const {data:a}=await supabase.from("attachments").select("storage_bucket,storage_path,mime_type").eq("id",id).maybeSingle();if(!a)return NextResponse.json({error:"Not found"},{status:404});const admin=createAdminClient();const {data,error}=await admin.storage.from(a.storage_bucket).download(a.storage_path);if(error||!data)return NextResponse.json({error:"Not found"},{status:404});return new Response(await data.arrayBuffer(),{headers:{"Content-Type":a.mime_type??"application/octet-stream","Cache-Control":"private, max-age=3600"}})}

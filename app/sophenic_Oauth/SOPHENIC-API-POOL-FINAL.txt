@@ -1,0 +1,42 @@
+﻿SOPHENIC 5.4.0 — POOL API REEL / IMPORT SECURISE
+=====================================================
+
+Cette archive NE CONTIENT AUCUNE CLE API.
+
+Le routeur est adapte au fichier de configuration fourni :
+- OpenRouter : 7 cles
+- Groq : 6 cles (la section « GROK AI » du TXT est reconnue comme Groq)
+- Z.AI : 4 cles
+- Google Gemini : 5 cles
+- Cloudflare Workers AI : 4 tokens, chacun associe a son Account ID
+- SiliconFlow : 5 cles
+- Mistral : 5 cles
+- SambaNova : 4 cles
+- Cerebras : 5 cles
+- Cohere : 5 cles
+- Hugging Face : 1 token
+- AI/ML API : 1 cle
+- Scaleway : 1 Secret Key (+ Access Key ID en metadata)
+
+Total reconnu par l'importeur : 53 secrets d'authentification.
+NVIDIA et Alibaba/Qwen restent disponibles dans le registre, mais non configures tant qu'aucune cle n'est importee.
+
+IMPORT APRES INSTALLATION
+-------------------------
+1. Ouvre SOPHENIC.
+2. Ouvre « Fournisseurs IA ».
+3. Clique « Importer TXT ».
+4. Selectionne ton fichier de cles.
+5. SOPHENIC chiffre localement les cles avec Electron safeStorage/Windows.
+6. Verifie le nombre de cles detectees.
+7. Supprime ensuite le TXT en clair.
+
+IMPORTANT
+---------
+Le TXT de cles n'est volontairement pas inclus dans ce ZIP et aucune cle n'est inscrite dans le code ou dans l'EXE.
+Comme les cles ont ete partagees dans une conversation, il est recommande de les regenerer apres validation du systeme puis de reimporter le nouveau TXT localement.
+
+Cloudflare : chaque token conserve son propre Account ID.
+Scaleway : la Secret Key sert aux appels d'inference ; l'Access Key ID reste une metadata locale.
+
+Voir docs/SOPHENIC-API-IMPORT.md pour les details.

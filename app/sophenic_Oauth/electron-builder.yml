@@ -1,0 +1,66 @@
+appId: com.sophenic.desktop
+productName: SOPHENIC
+copyright: Copyright © 2026 SOPHENIC
+electronVersion: 37.2.6
+
+# Commercial Windows package: Electron code in ASAR, Next.js runtime kept as a
+# normal resource tree because its traced node_modules must stay resolvable.
+asar: true
+npmRebuild: false
+compression: maximum
+
+directories:
+  app: dist-desktop
+  output: release
+  buildResources: build
+
+files:
+  - "**/*"
+
+extraResources:
+  - from: build/provision-ai.ps1
+    to: bootstrap/provision-ai.ps1
+  - from: build/launch
+    to: launch
+  - from: build/icon.ico
+    to: icon.ico
+
+afterPack: ./scripts/after-pack.cjs
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  executableName: SOPHENIC
+  requestedExecutionLevel: asInvoker
+  legalTrademarks: SOPHENIC
+
+nsis:
+  include: build/installer.nsh
+  oneClick: false
+  perMachine: false
+  selectPerMachineByDefault: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  menuCategory: false
+  shortcutName: SOPHENIC
+  uninstallDisplayName: SOPHENIC
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/installerSidebar.bmp
+  installerHeader: build/installerHeader.bmp
+  installerLanguages:
+    - fr_FR
+  language: "1036"
+  displayLanguageSelector: false
+  runAfterFinish: true
+  packElevateHelper: false
+  unicode: true
+  warningsAsErrors: true
+
+artifactName: "Sophenic Setup.${ext}"

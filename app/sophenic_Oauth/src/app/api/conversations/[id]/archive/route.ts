@@ -1,0 +1,3 @@
+import { NextResponse } from "next/server";
+import { getApiUser } from "@/lib/auth";
+export async function POST(_request:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;const {user,supabase}=await getApiUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});const {data}=await supabase.from("conversations").select("archived").eq("id",id).maybeSingle();if(!data)return NextResponse.json({error:"Not found"},{status:404});const {error}=await supabase.from("conversations").update({archived:!data.archived,updated_at:new Date().toISOString()}).eq("id",id);return error?NextResponse.json({error:error.message},{status:400}):NextResponse.json({ok:true,archived:!data.archived});}
