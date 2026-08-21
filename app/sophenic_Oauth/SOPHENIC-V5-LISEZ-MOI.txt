@@ -1,0 +1,20 @@
+SOPHENIC V5.4.0 — ASSISTANT IA WINDOWS
+
+NOUVEAUTES 5.4.0
+- Action Router local prioritaire avant Chat / Code / Hermes.
+- Ouverture ET fermeture d'applications avec vérification de processus Windows.
+- Spotify local sans LLM : recherche/lecture, pause, reprise, suivant, précédent.
+- Volume Windows via Core Audio.
+- Heure et date système locales.
+- Téléchargements/Bureau/création fichier-dossier hors Sophenic Code.
+- Mémoire de langue persistante à travers OpenRouter, Ollama, Hermes, Code et Image.
+- Identité stable : assistant = Sophenic, moteur d'inférence annoncé séparément.
+- Hermes Smart Approval forcé; yolo/off et autorisation permanente interdits dans l'UI.
+- Fallback OpenRouter -> autre modèle -> Ollama conservant langue/personnalité/contexte.
+- Installateur Windows NSIS avec raccourci Bureau, Menu Démarrer, désinstallation, icône, splash et intro vidéo.
+
+BUILD WINDOWS
+Voir INSTRUCTIONS.txt et POWERSHELL-A-COLLER.txt.
+
+RAPPORT
+Voir TEST-REPORT.md pour les tests réellement exécutés et les limites de validation Windows.

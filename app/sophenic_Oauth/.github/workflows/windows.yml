@@ -1,0 +1,50 @@
+name: Build Sophenic Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    env:
+      SOPHENIC_WEB_URL: ${{ vars.SOPHENIC_WEB_URL }}
+      NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      STRIPE_PRICE_PRO: ${{ vars.STRIPE_PRICE_PRO }}
+      STRIPE_PRICE_BUSINESS: ${{ vars.STRIPE_PRICE_BUSINESS }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify local-agent security invariants
+        run: npm run verify:source
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build Web + Windows installer
+        run: npm run build
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: sophenic-windows
+          path: release/*.exe
+          if-no-files-found: error

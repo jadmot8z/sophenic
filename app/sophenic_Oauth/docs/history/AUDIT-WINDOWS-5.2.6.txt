@@ -1,0 +1,33 @@
+SOPHENIC V5.2.6 — CHAÎNE WINDOWS INSTALLER
+
+CORRECTIONS APPLIQUÉES
+- package.json conserve main = electron/main.js.
+- Next.js output=standalone avec outputFileTracingRoot fixé au projet.
+- Normalisation automatique de .next/standalone si Next.js imbrique server.js à cause d'un workspace/lockfile parent.
+- public/ et .next/static intégrés au standalone conformément au mode self-hosted.
+- Electron main/preload compilés en CommonJS dans dist-electron puis assemblés dans dist-desktop/app.asar.
+- Runtime Next complet copié hors ASAR dans resources/web après packaging.
+- Instance unique Windows et remise au premier plan au second lancement.
+- Splash local + vidéo intro avant affichage de la fenêtre principale.
+- Fallback d'affichage si Chromium n'émet pas ready-to-show afin d'éviter un processus invisible.
+- Marqueur de smoke-test privé --sophenic-smoke-ready utilisé uniquement par le build Windows pour prouver que la vraie fenêtre principale a été affichée.
+- electron-builder cible uniquement NSIS x64. Aucune cible portable.
+- Installateur assisté SOPHENIC INSTALLER, bouton Installer, branding violet, icône ICO multi-résolution avec 256x256.
+- Raccourci Bureau, raccourci Menu Démarrer, entrée Désinstaller SOPHENIC.
+- Vérification après packaging de icudtl.dat, resources.pak, locales, app.asar, runtime Next, splash et intro.
+- Désactivation du debug logging Chromium dans le main process.
+- build-sophenic.ps1 nettoie, installe/corrige les dépendances, teste, compile, package, smoke-teste, puis copie Sophenic Setup.exe dans Téléchargements.
+- Sur une machine sans installation SOPHENIC préexistante, le script effectue aussi un aller-retour NSIS silencieux : installation réelle, raccourcis, entrée de désinstallation, lancement, réouverture, désinstallation de test.
+
+TESTS EXÉCUTÉS DANS L'ENVIRONNEMENT DE CORRECTION
+- verify-source.mjs : OK
+- test-sophenic.mjs : 7/7 OK
+- syntaxe TypeScript/TSX : 86 fichiers OK
+- syntaxe scripts Node packaging : OK
+- normalisation standalone imbriquée simulée : OK
+- icône : contient une image 256x256 et les résolutions Windows inférieures.
+
+LIMITATION DE CET ENVIRONNEMENT
+Le conteneur de correction est Linux et ne contient ni Wine ni NSIS Windows. Le build NSIS final et les tests GUI Windows sont donc exécutés par build-sophenic.ps1 sur la machine Windows de build. Le script refuse le résultat si les contrôles runtime/ICU/package échouent.
+
+- Correctif NSIS 5.2.6: hook SophenicWelcomePageShow exclu du build temporaire du désinstalleur pour supprimer warning 6010 sans désactiver warningsAsErrors.

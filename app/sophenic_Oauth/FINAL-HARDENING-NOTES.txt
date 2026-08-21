@@ -1,0 +1,9 @@
+SOPHENIC CODE ENGINE 10.0.1 HARDENING
+
+Changes:
+- Added npm run sophenic:start shortcut.
+- Added .env.example for GitHub/Vercel secret locations.
+- Keep real secrets outside source control.
+
+Remaining manual validation:
+- remove unused legacy Claude/Hermes modules if the product decision is full removal.

@@ -1,0 +1,26 @@
+﻿SOPHENIC V5.4.0 — AI ROUTER
+==============================
+
+CLÉS API
+--------
+Dans Sophenic : ouvre « Fournisseurs IA », choisis le fournisseur, colle 1 à 20 clés (une par ligne), puis clique « Enregistrer dans le coffre ».
+
+Cloudflare : ajoute aussi l’Account ID.
+Alibaba / Scaleway : renseigne l’URL régionale HTTPS uniquement si ton compte l’exige.
+
+Ne colle pas tes clés dans le code, le ZIP ou l’EXE. Sous Windows, Sophenic les enregistre avec electron.safeStorage.
+
+BUILD WINDOWS
+-------------
+1. Place SOPHENIC-V5.4.0-AI-ROUTER.zip et BUILD-SOPHENIC-AI-ROUTER.ps1 dans Téléchargements.
+2. Ouvre PowerShell en administrateur.
+3. Exécute :
+
+   Set-ExecutionPolicy -Scope Process Bypass -Force; & "$env:USERPROFILE\Downloads\BUILD-SOPHENIC-AI-ROUTER.ps1"
+
+Le script installe Node.js LTS via winget s’il manque, télécharge les dépendances npm, exécute les tests et crée :
+
+   %USERPROFILE%\Downloads\Sophenic Setup.exe
+
+Le journal du build est :
+   %USERPROFILE%\Downloads\Sophenic-AI-Router-build.log

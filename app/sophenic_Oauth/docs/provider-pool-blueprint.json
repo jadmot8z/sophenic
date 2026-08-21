@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "secretsIncluded": false,
+  "providers": {
+    "openrouter": {
+      "expectedKeys": 7
+    },
+    "groq": {
+      "expectedKeys": 6,
+      "sourceLabelAlias": "GROK AI"
+    },
+    "zai": {
+      "expectedKeys": 4
+    },
+    "gemini": {
+      "expectedKeys": 5
+    },
+    "cloudflare": {
+      "expectedKeys": 4,
+      "expectedAccounts": 4,
+      "requiresPerKeyAccountId": true
+    },
+    "siliconflow": {
+      "expectedKeys": 5
+    },
+    "mistral": {
+      "expectedKeys": 5
+    },
+    "sambanova": {
+      "expectedKeys": 4
+    },
+    "cerebras": {
+      "expectedKeys": 5
+    },
+    "cohere": {
+      "expectedKeys": 5
+    },
+    "huggingface": {
+      "expectedKeys": 1
+    },
+    "aimlapi": {
+      "expectedKeys": 1
+    },
+    "scaleway": {
+      "expectedKeys": 1,
+      "accessKeyIdMetadata": true
+    }
+  }
+}

@@ -1,0 +1,2 @@
+Correction du parseur Windows PowerShell: les chaînes "$Label:" ont été remplacées par "${Label}:".
+Le script build-sophenic.ps1 est encodé en UTF-8 avec BOM pour Windows PowerShell 5.1.

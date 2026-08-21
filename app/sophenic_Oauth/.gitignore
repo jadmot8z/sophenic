@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+dist-electron
+dist-desktop
+release
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+supabase/.temp
+workspace/
+.sophenic/
+test-results/
+playwright-report/

@@ -1,0 +1,13 @@
+SOPHENIC V5.2.6 - Correctif final hook NSIS MUI
+
+Cause observée sur Windows :
+- warning 6155: !undef: "MUI_PAGE_CUSTOMFUNCTION_SHOW" not defined
+- warningsAsErrors=true transforme ce warning en échec de makensis.
+
+Correction :
+- suppression du !undef MUI_PAGE_CUSTOMFUNCTION_SHOW après !insertmacro MUI_PAGE_WELCOME ;
+- le macro MUI de NSIS gère lui-même cette définition ;
+- SophenicWelcomePageShow reste exclu pendant BUILD_UNINSTALLER ;
+- warningsAsErrors reste activé.
+
+Le résultat attendu est release\Sophenic Setup.exe, ensuite copié vers Downloads par build-sophenic.ps1.

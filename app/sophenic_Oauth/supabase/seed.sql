@@ -1,0 +1,3 @@
+-- Optional local seed. The primary migration already seeds plans and OpenRouter Auto.
+-- Promote a real account to admin manually after signup:
+-- update public.profiles set role='admin' where id='<AUTH_USER_UUID>';
