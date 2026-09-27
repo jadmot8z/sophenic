@@ -5,13 +5,27 @@
 - Serveur lié à `127.0.0.1`, validation Host, rejet Origin/cross-site, jeton anti-CSRF par exécution.
 - Aucune ressource distante dans l'interface ; CSP restrictive, anti-framing, rendu via `textContent`.
 - Pas de commandes shell, JS produit par le modèle, téléchargement automatique ni chemins de fichier libres.
-- Confirmation obligatoire avant les interactions et navigations ; refus terminal, expiration des demandes.
+- Consentement sélectif : indicateur `impact` du modèle + contrôles locaux sur libellés, URL, soumissions,
+  uploads et Entrée hors recherche. Confirmation des risques détectés ; refus terminal et expiration.
+- Connexion manuelle : pages Google d'authentification et champs password visibles provoquent une pause.
+  Le modèle peut aussi demander une intervention via `ask_user`. Aucun outil n'est exécuté pendant cette
+  attente. Les réponses de précision sont transmises au modèle local, pas enregistrées comme événement brut.
 - Vérification de l'onglet, de l'URL et de la description de la cible avant l'action autorisée.
 - Schémas JSON fermés, limites de taille, budget d'étapes, délais, détection des répétitions.
 - Requêtes du navigateur filtrées : HTTP(S) public uniquement, ports 80/443, pas de credentials dans
   l'URL, refus des IP privées/réservées et de la résolution DNS privée pour les requêtes interceptées,
   y compris les sous-ressources. WebSockets et service workers désactivés.
 - Arrêt = annulation du job + fermeture du navigateur, pas simplement arrêt du polling UI.
+
+## Changement de politique dans 1.1
+
+La confirmation systématique de 1.0 est remplacée par une politique basée sur le risque, à la demande
+de l'utilisateur. **Cette version accepte davantage de risque** : les motifs français/anglais ne couvrent
+pas tous les libellés ni toutes les langues, et le modèle peut mal classer un effet. Une URL anodine,
+un clic, une case ou une saisie peuvent provoquer un envoi sans indice préalable. Les vérifications
+locales ne constituent donc pas une garantie absolue de confirmation avant tout effet sensible.
+Certaines soumissions ambiguës restent confirmées même si elles paraissent ordinaires. La connexion
+Google peut être refusée par Google ; l'agent ne contourne pas cette protection.
 
 ## Ce que ces protections ne garantissent pas
 

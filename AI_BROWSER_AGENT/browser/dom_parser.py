@@ -1,7 +1,7 @@
 """Extract bounded, visible DOM and retain actual node handles, not CSS from the LLM."""
 
 ELEMENTS_JS = r"""() => {
- const selectors = 'a[href],button,input,textarea,select,[role="button"],[role="link"],[contenteditable="true"]';
+ const selectors = 'a[href],button,input,textarea,select,[role="button"],[role="link"],[role="textbox"],[contenteditable="true"]';
  return [...document.querySelectorAll(selectors)].filter(el => {
   const r = el.getBoundingClientRect(), s = getComputedStyle(el);
   return r.width > 0 && r.height > 0 && r.bottom >= 0 && r.top <= innerHeight &&
@@ -11,8 +11,11 @@ ELEMENTS_JS = r"""() => {
 DESCRIBE_JS = r"""el => ({
  tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '',
  label: (el.getAttribute('aria-label') || (el.labels && [...el.labels].map(l=>l.innerText).join(' ')) ||
-   el.innerText || el.getAttribute('placeholder') || el.getAttribute('name') || el.getAttribute('title') || '').slice(0,160),
- type: el.getAttribute('type') || '', disabled: !!el.disabled,
+   el.innerText || el.getAttribute('placeholder') || el.getAttribute('name') || el.getAttribute('title') || el.getAttribute('data-tooltip') || '').slice(0,160),
+ type: el.type || el.getAttribute('type') || '', disabled: !!el.disabled,
+ title: (el.getAttribute('title') || el.getAttribute('data-tooltip') || '').slice(0,160),
+ autocomplete: el.getAttribute('autocomplete') || '',
+ form_role: el.closest('form')?.getAttribute('role') || '',
  href: (el.getAttribute('href') || '').slice(0,1500),
  options: el.tagName === 'SELECT' ? [...el.options].slice(0,40).map(o=>({label:o.label,value:o.value})) : []
 })"""

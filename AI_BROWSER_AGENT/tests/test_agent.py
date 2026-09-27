@@ -103,3 +103,58 @@ async def test_stop_before_job_started(tmp_path):
         assert manager.state()["phase"] == "idle"
     finally:
         args[4].close()
+
+
+async def test_login_pause_and_fresh_observation(tmp_path):
+    args = components(tmp_path, [Action(action="finish", answer="Session disponible")])
+    args[4].create_task("t", "Ouvrir Gmail")
+    args[2].observe.side_effect = [
+        {"url": "https://accounts.google.com/signin", "text": "Connexion", "elements": [], "errors": []},
+        {"url": "https://mail.google.com", "text": "Boîte de réception", "elements": [], "errors": []},
+    ]
+    engine = AgentEngine(*args, "t")
+    pending = asyncio.Event()
+    engine.decision.emit = lambda kind, data: pending.set() if kind == "intervention" else None
+    job = asyncio.create_task(engine.run("Ouvrir Gmail"))
+    try:
+        await asyncio.wait_for(pending.wait(), 2)
+        assert engine.phase == "WAITING_USER"
+        assert engine.deadline.when() is None
+        args[3].execute.assert_not_awaited()
+        # Only the plan has used Ollama; the login observation was not sent to it.
+        assert args[1].structured.await_count == 1
+        engine.decision.resolve(engine.decision.pending["id"], True)
+        await job
+        assert args[2].observe.await_count == 2
+        assert args[4].tasks()[0]["status"] == "completed"
+        assert engine.deadline.when() is not None
+    finally:
+        if not job.done():
+            job.cancel()
+        args[4].close()
+
+
+async def test_requested_information_reaches_next_decision(tmp_path):
+    args = components(
+        tmp_path,
+        [
+            Action(action="ask_user", value="Quelle adresse exacte ?"),
+            Action(action="finish", answer="Précision reçue"),
+        ],
+    )
+    args[4].create_task("t", "Préparer un mail")
+    engine = AgentEngine(*args, "t")
+    pending = asyncio.Event()
+    engine.decision.emit = lambda kind, data: pending.set() if kind == "intervention" else None
+    job = asyncio.create_task(engine.run("Préparer un mail"))
+    try:
+        await asyncio.wait_for(pending.wait(), 2)
+        engine.decision.resolve(engine.decision.pending["id"], True, "ami@example.com")
+        await job
+        messages = args[1].structured.call_args.args[0]
+        assert "ami@example.com" in messages[1]["content"]
+        assert not any("ami@example.com" in str(e) for e in args[4].events("t"))
+    finally:
+        if not job.done():
+            job.cancel()
+        args[4].close()

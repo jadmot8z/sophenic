@@ -22,6 +22,7 @@ ActionName = Literal[
     "observe",
     "search",
     "finish",
+    "ask_user",
 ]
 
 
@@ -32,6 +33,10 @@ class Action(BaseModel):
     value: str = Field(default="", max_length=8000)
     url: str = Field(default="", max_length=4000)
     reason: str = Field(default="", max_length=1000)
+    impact: Literal[
+        "routine", "send", "purchase", "delete", "publish", "share", "account", "other_sensitive"
+    ] = "routine"
+    summary: str = Field(default="", max_length=2000)
     answer: str = Field(default="", max_length=16000)
 
     @model_validator(mode="after")
@@ -41,7 +46,7 @@ class Action(BaseModel):
                 raise ValueError("target requis")
         if self.action == "open_url" and not self.url:
             raise ValueError("url requise")
-        if self.action in {"search", "select", "upload", "press"} and not self.value:
+        if self.action in {"search", "select", "upload", "press", "ask_user"} and not self.value:
             raise ValueError("value requis")
         if self.action == "finish" and not self.answer:
             raise ValueError("answer requis")
@@ -61,6 +66,7 @@ class TaskRequest(BaseModel):
 class Approval(BaseModel):
     model_config = ConfigDict(extra="forbid")
     approved: bool
+    response: str = Field(default="", max_length=4000)
 
 
 class Preference(BaseModel):

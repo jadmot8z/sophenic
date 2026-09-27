@@ -1,4 +1,4 @@
-from browser.dom_parser import VIEWPORT_TEXT_JS, parse_dom
+from browser.dom_parser import DESCRIBE_JS, VIEWPORT_TEXT_JS, parse_dom
 
 
 class PageAnalyzer:
@@ -16,11 +16,17 @@ class PageAnalyzer:
         errors = await page.locator('[role="alert"], [aria-invalid="true"]').evaluate_all(
             "els => els.slice(0,15).map(e => (e.innerText || e.getAttribute('aria-label') || 'Champ invalide').slice(0,300))"
         )
+        focused_handle = await page.evaluate_handle("document.activeElement || document.body")
+        try:
+            focused = await focused_handle.evaluate(DESCRIBE_JS)
+        finally:
+            await focused_handle.dispose()
         return {
             "url": page.url,
             "title": await page.title(),
             "text": text,
             "elements": elements,
+            "focused": focused,
             "errors": errors,
             "limitations": "DOM principal uniquement ; iframe/shadow DOM fermé/canvas non analysés",
         }

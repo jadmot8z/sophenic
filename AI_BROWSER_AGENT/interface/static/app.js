@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let token = '', active = null, after = 0, confirmation = null, screenshotURL = null, busy = false;
+let token = '', active = null, after = 0, confirmation = null, screenshotURL = null, busy = false, pendingId = null;
 async function api(path, method = 'GET', body) {
   const response = await fetch('/api' + path, {method, headers: {'Content-Type': 'application/json', 'X-Agent-Token': token}, body: body === undefined ? undefined : JSON.stringify(body)});
   if (!response.ok) { let detail; try { detail = (await response.json()).detail; } catch { detail = response.statusText; } throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail)); }
@@ -19,7 +19,27 @@ async function poll() {
     $('phase').textContent = state.phase; $('stop').disabled = !busy; $('start').disabled = busy;
     confirmation = state.confirmation;
     $('approval').hidden = !confirmation;
-    if (confirmation) $('approval-detail').textContent = JSON.stringify(confirmation, null, 2);
+    if (confirmation) {
+      const human = confirmation.kind === 'intervention';
+      if (pendingId !== confirmation.id) {
+        $('human-response').value = '';
+        pendingId = confirmation.id;
+        $('approval').scrollIntoView({block: 'nearest'});
+      }
+      $('approval-title').textContent = human ? 'Votre intervention est nécessaire' : 'Confirmer cette action sensible';
+      $('approval-detail').textContent = human ? confirmation.message :
+        [confirmation.message, confirmation.summary, JSON.stringify(confirmation.action, null, 2),
+         'Cible : ' + JSON.stringify(confirmation.element), 'Page : ' + confirmation.page_url].filter(Boolean).join('\n\n');
+      $('human-response-label').hidden = !human;
+      $('approval-hint').textContent = human ?
+        'Connectez-vous dans la fenêtre Chromium pilotée (pas dans cette interface). L’agent attend sans agir. Ensuite, cliquez sur J’ai terminé.' :
+        'Vérifiez destinataire, contenu, montant et effet dans Chromium avant d’autoriser.';
+      $('approve').textContent = human ? 'J’ai terminé — Reprendre' : 'Autoriser cette action';
+      $('reject').textContent = human ? 'Annuler la tâche' : 'Refuser et arrêter';
+    }
+    $('empty-preview').textContent = state.tabs.length ?
+      'Chromium est ouvert. Cliquez sur Actualiser la capture pour voir l’onglet actif.' :
+      'Chromium s’ouvrira au démarrage de la première tâche.';
     $('tabs').replaceChildren();
     state.tabs.forEach(tab => { const item = document.createElement('div'); item.textContent = `${tab.active ? '●' : '○'} ${tab.id} · ${tab.url}`; $('tabs').append(item); });
     if (active) {
@@ -46,7 +66,7 @@ $('chat').onsubmit = async event => {
 $('stop').onclick = async () => { try { await api('/stop','POST'); } catch(error) { notice(error); } };
 $('new').onclick = () => { active = null; after = 0; $('conversation').replaceChildren(); $('logs').replaceChildren(); $('goal').focus(); };
 $('example').onclick = () => { $('goal').value = 'Trouve-moi les meilleurs ordinateurs portables RTX 4070 à moins de 1500 euros. Compare les prix, caractéristiques et donne les sources.'; $('goal').focus(); };
-async function confirm(approved) { if (!confirmation) return; try { await api('/confirm/' + confirmation.id,'POST',{approved}); $('approval').hidden = true; confirmation = null; } catch(error) { notice(error); } }
+async function confirm(approved) { if (!confirmation) return; try { await api('/confirm/' + confirmation.id,'POST',{approved,response: confirmation.kind === 'intervention' ? $('human-response').value : ''}); $('approval').hidden = true; confirmation = null; } catch(error) { notice(error); } }
 $('approve').onclick = () => confirm(true); $('reject').onclick = () => confirm(false);
 $('capture').onclick = async () => {
   try { const res = await fetch('/api/screenshot'); if(!res.ok) throw new Error('Capture indisponible : démarrez une tâche.'); const blob = await res.blob(); if(screenshotURL) URL.revokeObjectURL(screenshotURL); screenshotURL = URL.createObjectURL(blob); $('screenshot').src = screenshotURL; $('screenshot').hidden = false; $('empty-preview').hidden = true; } catch(error) { notice(error); }

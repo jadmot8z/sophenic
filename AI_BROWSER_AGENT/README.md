@@ -1,4 +1,4 @@
-# AI Browser Agent
+# AI Browser Agent — 1.1.0
 
 Application locale pour Windows 10/11 : **FastAPI + Playwright/Chromium + Ollama `qwen3:14b`**.
 L'interface de bureau s'ouvre dans votre navigateur sur `http://127.0.0.1:8765` ; le navigateur
@@ -57,8 +57,18 @@ Exemple :
 > Compare les prix et indique les URL des sources, sans passer commande.
 
 - L'agent crée un plan puis observe la page, décide d'une action et la soumet au validateur.
-- Les clics, doubles clics, saisies, touches, sélections, envois de fichiers **et navigations**
-  exigent votre accord. Le panneau montre les paramètres exacts et la description de l'élément.
+- Les navigations, recherches, clics ordinaires, saisies de brouillons et sélections se font sans
+  confirmation systématique. Le modèle signale les actions sensibles via `impact` et le backend
+  vérifie aussi les cibles, soumissions et touches pouvant engager une action finale.
+- Un envoi de message, un achat, une publication, une suppression ou un upload détecté exige
+  confirmation. Les commandes ambiguës (ex. bouton de soumission inconnu ou Entrée hors recherche)
+  peuvent aussi déclencher une confirmation par prudence.
+- Si une connexion, un CAPTCHA ou une information manque, l'agent utilise **ask_user** et passe en
+  **WAITING_USER**. Complétez l'étape dans la fenêtre Chromium, ou indiquez la précision demandée
+  dans le panneau, puis cliquez sur **J’ai terminé — Reprendre**. L'agent relit alors la page.
+  Aucun mot de passe, code 2FA ou cookie ne doit être fourni dans le chat.
+- Les pages `accounts.google.com` et champs de mot de passe visibles déclenchent une pause automatique,
+  indépendamment du modèle. Le navigateur ne mémorise pas vos identifiants après sa fermeture.
 - Vérifiez la page Chromium avant chaque confirmation. **Refuser arrête la tâche**, sans permettre
   au modèle de reformuler pour contourner votre refus.
 - « Arrêter » annule les appels en cours et ferme Chromium. Une action déjà envoyée à un site
@@ -69,9 +79,27 @@ Exemple :
 - Pour autoriser un fichier, placez-le dans `data\uploads`. Le modèle ne peut envoyer que les fichiers
   de ce dossier ; chaque envoi reste soumis à confirmation. Aucun accès arbitraire au disque.
 
-**Mode prudent obligatoire.** Cette version est autonome dans la planification et le choix des actions,
-mais supervisée dans leur exécution. C'est délibéré : même un lien HTTP GET peut supprimer une ressource.
-Une classification par mots-clés « achat / suppression / publication » ne serait pas une barrière fiable.
+**Consentement sélectif, pas garantie universelle.** La classification du modèle et les heuristiques DOM
+peuvent manquer une action sensible ou demander une confirmation inutile. Une visite, une saisie ou un lien
+peut déjà déclencher un effet côté site. Gardez Chromium visible et utilisez des comptes de test.
+Le modèle ne peut pas désactiver une confirmation imposée par le backend.
+
+### Exemple Gmail
+
+« Ouvre Gmail et prépare un message “Salut” pour ami@example.com. »
+
+L'agent peut ouvrir le service, demander votre connexion manuelle, reprendre, préparer le brouillon,
+puis demander l'accord avant **Envoyer** et vérifier le résultat. Si vous donnez seulement un prénom,
+il doit demander le destinataire exact, pas inventer une adresse. Il n'utilise pas d'API Gmail ni OAuth
+propre à l'application : il agit via la session du navigateur. Google peut refuser la connexion depuis
+un navigateur automatisé : ce blocage réel doit être signalé, il n'est pas contourné.
+
+### Mise à jour depuis 1.0
+
+Fermez le backend (Ctrl+C dans sa console). Sauvegardez votre dossier `data`, puis extrayez le nouveau
+ZIP et copiez son contenu dans le dossier `AI_BROWSER_AGENT` existant en remplaçant les fichiers du
+programme. **Ne supprimez pas `data` ni `.venv`**. Relancez `installer.bat`, puis `lancer.bat`, et faites
+**Ctrl+F5** sur l'interface. Les anciennes tâches ne sont pas rejouées : démarrez une nouvelle demande.
 
 ## Architecture
 
@@ -146,8 +174,9 @@ Paramètres typés : `core/config.py`. Le modèle par défaut obligatoire est `q
 | `AIBA_OLLAMA_URL` | `http://127.0.0.1:11434` | Instance Ollama ; conserver une adresse locale |
 | `AIBA_HEADLESS` | non défini | `1` pour les tests sans fenêtre |
 
-Limites par défaut : 40 étapes, 15 minutes par tâche, 180 s par appel LLM, 15 s par action
-Playwright, 180 s pour une confirmation. Une réparation JSON maximum. Trois actions identiques
+Limites par défaut : 40 étapes, 15 minutes de temps actif par tâche, 180 s par appel LLM, 15 s par action
+Playwright, 180 s pour une confirmation sensible. Une intervention utilisateur dispose de 15 minutes
+(`human_timeout`) et suspend le budget de temps actif, mais pas le bouton Arrêter. Une réparation JSON maximum. Trois actions identiques
 sur une page inchangée, huit étapes sans changement ou trois erreurs consécutives arrêtent la tâche.
 
 ## Développement et tests

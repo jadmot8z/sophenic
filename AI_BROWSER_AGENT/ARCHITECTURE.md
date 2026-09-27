@@ -8,7 +8,8 @@ Interface → POST /api/tasks → TaskManager (une tâche exclusive)
   → OBSERVE : viewport, DOM, onglets, alertes
   → THINK : goal + plan + contexte récent + préférences + erreurs → Ollama
   → Action Pydantic + LoopGuard
-  → AUTHORIZE : confirmation humaine éphémère, timeout, refus terminal
+  → ask_user / connexion détectée : WAITING_USER → intervention → nouvelle observation
+  → AUTHORIZE : politique de risque ; actions ordinaires automatiques, risques confirmés
   → ACT : adaptateur BrowserTools → Playwright
   → VERIFY : nouveau DOM, URL, changements, erreurs de page
   → MEMORY : journal SQLite + contexte court ; erreur → nouveau plan
@@ -24,10 +25,14 @@ et la validité des cibles difficiles à garantir.
 ## Modules centraux
 
 - `agent_engine.py` orchestre la boucle et les transitions. Une enveloppe `asyncio.timeout` couvre
-  aussi la planification et les confirmations. Aucune relance automatique illimitée.
+  aussi la planification et les confirmations sensibles. Le délai actif est suspendu pendant une
+  intervention `ask_user`, elle-même bornée par `human_timeout`. Aucune relance illimitée.
 - `task_manager.py` refuse les tâches concurrentes, annule le job et marque les tâches interrompues
   au redémarrage. Une nouvelle tâche ne rejoue jamais une transaction d'une ancienne tâche.
-- `decision_system.py` applique une politique indépendante du LLM. Aucune sortie du modèle ne peut
+- `action_policy.py` combine impact déclaré par le LLM et règles locales qui peuvent uniquement
+  renforcer la prudence. Navigation et rédaction sont automatiques ; soumissions ambiguës, opérations
+  détectées et uploads demandent une confirmation. La classification n’est pas une preuve de sûreté.
+- `decision_system.py` applique cette politique et gère aussi les pauses utilisateur. Aucune sortie du modèle ne peut
   supprimer une confirmation. Les IDs de confirmation expirent et ne sont pas réutilisables.
 - `ollama_client.py` appelle `/api/chat` sans streaming, fournit le JSON Schema Pydantic et valide
   à nouveau la réponse. Une seule réparation est permise après une sortie mal formée.
@@ -54,6 +59,23 @@ et la validité des cibles difficiles à garantir.
 ```json
 {"action":"finish","answer":"Comparaison et URL des sources consultées…"}
 ```
+
+Exemple d'intervention :
+
+```json
+{"action":"ask_user","value":"Connectez-vous à Gmail dans Chromium, puis cliquez sur J’ai terminé."}
+```
+
+Exemple d'étape finale :
+
+```json
+{"action":"click","target":"e7-3","impact":"send","summary":"Envoyer à ami@example.com le message : Salut"}
+```
+
+`ask_user` ne déclenche aucune action Playwright. Son acquittement réutilise `/api/confirm/{id}`
+avec `approved` et une `response` facultative ; `kind=intervention` distingue ce cas du consentement.
+La réponse reste dans le contexte court ; aucun mot de passe ni code ne doit y être saisi.
+Les identifiants DOM précédant l'intervention sont remplacés par une nouvelle observation.
 
 Champs supplémentaires refusés. Le schéma complet se trouve dans `core/models.py`.
 `finish` ne correspond pas à une action navigateur et ne peut pas déclencher de transaction.

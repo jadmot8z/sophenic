@@ -46,7 +46,7 @@ def create_router(manager, storage, memory, browser, llm, files):
         try:
             if not manager.engine:
                 raise ValueError("Aucune tâche")
-            manager.engine.decision.resolve(identifier, body.approved)
+            manager.engine.decision.resolve(identifier, body.approved, body.response)
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"accepted": True}

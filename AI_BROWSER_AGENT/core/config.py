@@ -17,6 +17,7 @@ class Settings(BaseModel):
     llm_timeout: int = Field(default=180, ge=10)
     action_timeout: int = Field(default=15000, ge=1000)
     context_size: int = Field(default=16384, ge=4096)
+    human_timeout: int = Field(default=900, ge=30, le=3600)
     headless: bool = False
 
     @classmethod

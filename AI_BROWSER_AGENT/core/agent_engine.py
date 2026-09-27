@@ -1,7 +1,10 @@
 import asyncio
 import logging
+from urllib.parse import urlsplit
 
+from core.action_policy import needs_human_credentials
 from core.decision_system import DecisionSystem, LoopGuard
+from core.models import Action
 from core.planner import Planner
 from core.reasoning_loop import ReasoningLoop
 from memory.short_term_memory import ShortTermMemory
@@ -14,7 +17,8 @@ class AgentEngine:
     def __init__(self, settings, llm, browser, tools, storage, memory, task_id):
         self.settings, self.llm, self.browser, self.tools = settings, llm, browser, tools
         self.storage, self.memory, self.task_id = storage, memory, task_id
-        self.decision = DecisionSystem(self.emit)
+        self.decision = DecisionSystem(self.emit, settings.human_timeout)
+        self.deadline = None
         self.phase = "queued"
 
     def emit(self, kind, payload):
@@ -28,7 +32,8 @@ class AgentEngine:
     async def run(self, goal):
         self.storage.update_task(self.task_id, "running")
         try:
-            async with asyncio.timeout(self.settings.task_timeout):
+            async with asyncio.timeout(self.settings.task_timeout) as deadline:
+                self.deadline = deadline
                 await self._run(goal)
         except asyncio.CancelledError:
             self.storage.update_task(self.task_id, "cancelled", "Arrêt demandé par l'utilisateur")
@@ -46,6 +51,18 @@ class AgentEngine:
         finally:
             self.phase = "idle"
 
+    async def _human_pause(self, action, observation):
+        """No model/browser work during login. Human wait has its own bounded timeout."""
+        self.stage("WAITING_USER")
+        clock = asyncio.get_running_loop()
+        started = clock.time()
+        previous_deadline = self.deadline.when()
+        self.deadline.reschedule(None)
+        try:
+            return await self.decision.request_help(action, observation)
+        finally:
+            self.deadline.reschedule(previous_deadline + clock.time() - started)
+
     async def _run(self, goal):
         health = await self.llm.health()
         if not health["available"]:
@@ -62,12 +79,56 @@ class AgentEngine:
             async with self.browser.lock:
                 observation = await self.browser.observe()
             observation["upload_files"] = self.tools.files.list_files()
-            self.stage("THINK")
-            action = await reasoning.next_action(
-                goal, plan, observation, recent, self.memory.preferences(), self.memory.lessons()
+            # Passwords and Google authentication never go through the model or chat.
+            host = (urlsplit(observation["url"]).hostname or "").lower()
+            login_page = host == "accounts.google.com" or any(
+                e.get("type") == "password" for e in observation.get("elements", [])
             )
+            if login_page:
+                action = Action(
+                    action="ask_user",
+                    value=(
+                        "Une authentification ou un champ secret est affiché. Connectez-vous ou complétez "
+                        "cette étape vous-même dans la fenêtre Chromium, puis cliquez sur J’ai terminé. "
+                        "Ne saisissez pas de mot de passe dans ce chat. Si le site refuse ce navigateur, "
+                        "arrêtez la tâche et indiquez le message de blocage."
+                    ),
+                )
+            else:
+                self.stage("THINK")
+                action = await reasoning.next_action(
+                    goal, plan, observation, recent, self.memory.preferences(), self.memory.lessons()
+                )
+                if needs_human_credentials(action, observation):
+                    action = Action(
+                        action="ask_user",
+                        value=(
+                            "Complétez le mot de passe ou le code de vérification directement dans Chromium, "
+                            "puis cliquez sur J’ai terminé. Ne partagez pas ce secret dans le chat."
+                        ),
+                    )
             guard.check(action, observation)
             self.emit("action", {"step": step + 1, **public_action(action)})
+            if action.action == "ask_user":
+                resumed = await self._human_pause(action, observation)
+                if not resumed:
+                    self.storage.update_task(
+                        self.task_id, "cancelled", "Intervention annulée par l’utilisateur"
+                    )
+                    self.emit("cancelled", {"reason": "Intervention annulée"})
+                    return
+                recent.add(
+                    {"action": "ask_user", "question": action.value},
+                    {
+                        "resumed": True,
+                        "user_response": self.decision.response,
+                        "instruction": "L’utilisateur a terminé son intervention ; vérifier le nouvel état réel.",
+                    },
+                )
+                self.emit("resumed", {"message": "Reprise après intervention ; nouvelle observation"})
+                errors = 0
+                # Do not reuse pre-login handles or execute a previously prepared command.
+                continue
             if action.action == "finish":
                 self.storage.update_task(self.task_id, "completed", action.answer)
                 self.emit("answer", {"text": action.answer})
