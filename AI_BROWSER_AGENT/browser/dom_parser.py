@@ -59,3 +59,12 @@ VIEWPORT_TEXT_JS = r"""() => {
  }
  return result.join(' ').slice(0,12000);
 }"""
+
+
+FORM_STATE_JS = r"""() => [...document.querySelectorAll('input,select,textarea,[contenteditable="true"]')]
+ .filter(el => !['password','hidden'].includes(el.type) &&
+   !/password|one-time-code/i.test(el.getAttribute('autocomplete') || '') &&
+   !/password|mot de passe|otp|verification|vérification|2fa/i.test(
+     (el.name || '') + ' ' + (el.getAttribute('aria-label') || '')))
+ .slice(0,300).map(el => ({tag:el.tagName, name:el.name || el.id || '',
+   value:(el.value ?? el.textContent ?? '').slice(0,8000), checked:!!el.checked}))"""

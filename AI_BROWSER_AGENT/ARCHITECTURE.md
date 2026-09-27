@@ -5,14 +5,15 @@
 ```text
 Interface → POST /api/tasks → TaskManager (une tâche exclusive)
   → Ollama health → Chromium → Planner (Plan validé)
-  → OBSERVE : viewport, DOM, onglets, alertes
+  → clarification : année manquante sur une demande de billets → ask_user avant toute recherche
+  → OBSERVE : viewport, DOM, champs hachés, scroll, focus, onglets, alertes
   → THINK : goal + plan + contexte récent + préférences + erreurs → Ollama
   → Action Pydantic + LoopGuard
   → ask_user / connexion détectée : WAITING_USER → intervention → nouvelle observation
-  → AUTHORIZE : politique de risque ; actions ordinaires automatiques, risques confirmés
+  → AUTHORIZE : mode utilisateur (toujours demander / sensible / toujours accepter)
   → ACT : adaptateur BrowserTools → Playwright
   → VERIFY : nouveau DOM, URL, changements, erreurs de page
-  → MEMORY : journal SQLite + contexte court ; erreur → nouveau plan
+  → MEMORY : journal SQLite + contexte court ; blocage → replanifications bornées → intervention
   → étape suivante ou réponse finale / arrêt / échec
 ```
 
@@ -30,10 +31,14 @@ et la validité des cibles difficiles à garantir.
 - `task_manager.py` refuse les tâches concurrentes, annule le job et marque les tâches interrompues
   au redémarrage. Une nouvelle tâche ne rejoue jamais une transaction d'une ancienne tâche.
 - `action_policy.py` combine impact déclaré par le LLM et règles locales qui peuvent uniquement
-  renforcer la prudence. Navigation et rédaction sont automatiques ; soumissions ambiguës, opérations
+  renforcer la prudence **en mode sensible**. Les recherches sont des lectures, même si le modèle les
+  classe à tort sensibles. Navigation et rédaction sont automatiques ; soumissions ambiguës, opérations
   détectées et uploads demandent une confirmation. La classification n’est pas une preuve de sûreté.
-- `decision_system.py` applique cette politique et gère aussi les pauses utilisateur. Aucune sortie du modèle ne peut
-  supprimer une confirmation. Les IDs de confirmation expirent et ne sont pas réutilisables.
+- `decision_system.py` applique d’abord le mode sélectionné côté UI, puis la politique de risque si
+  nécessaire. `always_accept` autorise toutes les actions sans confirmation mais conserve les pauses
+  `ask_user`. `always_ask` confirme toutes les actions exécutables hors observation. Le mode est stocké
+  dans les préférences et modifié exclusivement via une API dédiée avec validation du risque. Aucune sortie du modèle ne peut
+  modifier le mode ni supprimer une confirmation déjà en attente. Les IDs de confirmation expirent et ne sont pas réutilisables.
 - `ollama_client.py` appelle `/api/chat` sans streaming, fournit le JSON Schema Pydantic et valide
   à nouveau la réponse. Une seule réparation est permise après une sortie mal formée.
 - `element_detector.py` conserve des handles des véritables nœuds, associés à une génération
@@ -41,6 +46,19 @@ et la validité des cibles difficiles à garantir.
   arbitraire n'est accepté. Un changement d'onglet/URL ou de description invalide la cible.
 - `sqlite_storage.py` utilise WAL, transactions courtes et verrou local. Le navigateur et ses captures
   partagent un verrou asynchrone pour éviter des opérations Playwright concurrentes.
+
+### Date et récupération
+
+`task_context.py` injecte une horloge locale fraîche et détecte les demandes usuelles de billets sans
+année. Une précision explicite est incorporée à l’objectif avant planification. Le garde-fou `search_mismatch`
+refuse localement les années inventées et substitutions vol/train dans l'action search ; il ne parse pas
+universellement toutes les dates ou actions de saisie.
+
+`progress.py` calcule une signature partagée pour la vérification et l’anti-boucle. Les IDs DOM générés et
+les raisons rédigées par le modèle sont exclus de l'identité d'une action répétée. Les champs non secrets
+sont hachés par HMAC avec une clé éphémère par analyseur ; les valeurs brutes ne vont pas dans ce signal.
+`LoopDetected` est récupérable : deux plans alternatifs, puis intervention. Les limites d'étapes et de
+durée restent actives ; `needs_attention` signale une tâche incomplète.
 
 ## Contrat des outils
 
@@ -86,6 +104,7 @@ Champs supplémentaires refusés. Le schéma complet se trouve dans `core/models
 |---|---|---|
 | GET | `/api/session` | Jeton anti-CSRF de cette exécution |
 | GET | `/api/health` | Disponibilité d'Ollama et du modèle |
+| GET / PUT | `/api/settings/permissions` | Mode ; `always_accept` exige `accept_sensitive_risk: true` |
 | GET | `/api/state` | Phase, onglets, confirmation en attente |
 | GET / POST | `/api/tasks` | Historique / nouvelle tâche |
 | GET | `/api/tasks/{id}/events?after=0` | Journal incrémental, 500 événements maximum par lecture |

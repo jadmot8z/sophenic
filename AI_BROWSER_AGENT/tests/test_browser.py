@@ -21,6 +21,9 @@ async def test_real_chromium(tmp_path):
         observation = await browser.observe()
         assert any(e["label"] == "Recherche" for e in observation["elements"])
         await tools.execute(Action(action="type", target="Recherche", value="RTX 4070"))
+        typed = await browser.observe()
+        assert typed["form_fingerprint"] != observation["form_fingerprint"]
+        assert "RTX 4070" not in typed["text"]  # input values are not exposed as visible text
         await tools.execute(Action(action="click", target="Valider"))
         assert await browser.current().locator("output").inner_text() == "RTX 4070"
         await tools.execute(Action(action="select", target="Choix", value="b"))

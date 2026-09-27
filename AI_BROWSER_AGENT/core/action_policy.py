@@ -45,6 +45,10 @@ def needs_human_credentials(action, observation):
 def consent_reason(action, observation):
     if action.action in {"ask_user", "finish", "observe", "switch_tab", "close_tab", "scroll"}:
         return None
+    # A search command only navigates to the fixed search provider. Misclassifying
+    # a ticket search as a purchase must not force sensitive consent.
+    if action.action == "search":
+        return None
     if action.impact != "routine":
         return "Action sensible signalée par le modèle : " + action.impact
     if action.action == "upload":

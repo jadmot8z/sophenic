@@ -158,3 +158,102 @@ async def test_requested_information_reaches_next_decision(tmp_path):
         if not job.done():
             job.cancel()
         args[4].close()
+
+
+async def test_travel_year_clarified_before_planning_or_search(tmp_path):
+    args = components(tmp_path, [Action(action="finish", answer="Pas de tarif vérifié")])
+    args[4].create_task("t", "billet Paris Marrakech du 20 au 30 août")
+    engine = AgentEngine(*args, "t")
+    pending = asyncio.Event()
+    engine.decision.emit = lambda kind, data: pending.set() if kind == "intervention" else None
+    job = asyncio.create_task(engine.run("billet Paris Marrakech du 20 au 30 août"))
+    try:
+        await asyncio.wait_for(pending.wait(), 2)
+        args[1].structured.assert_not_awaited()
+        args[3].execute.assert_not_awaited()
+        assert "année" in engine.decision.pending["message"]
+        engine.decision.resolve(engine.decision.pending["id"], True, "2027, avion")
+        await job
+        first_prompt = args[1].structured.call_args_list[0].args[0]
+        assert "2027, avion" in first_prompt[1]["content"]
+        assert args[4].tasks()[0]["status"] == "completed"
+    finally:
+        if not job.done():
+            job.cancel()
+            try:
+                await job
+            except asyncio.CancelledError:
+                pass
+        args[4].close()
+
+
+async def test_loop_recovers_and_can_finish_instead_of_crashing(tmp_path):
+    repeated = Action(action="observe")
+    args = components(
+        tmp_path,
+        [
+            repeated,
+            repeated,
+            repeated,
+            Plan(steps=["Changer de source"]),
+            Action(action="finish", answer="Blocage expliqué"),
+        ],
+    )
+    args[4].create_task("t", "recherche")
+    try:
+        await AgentEngine(*args, "t").run("recherche")
+        assert args[4].tasks()[0]["status"] == "completed"
+        assert any(e["kind"] == "recovery" for e in args[4].events("t"))
+        assert not any(e["kind"] == "error" for e in args[4].events("t"))
+    finally:
+        args[4].close()
+
+
+async def test_persistent_loop_requests_human_instead_of_crashing(tmp_path):
+    a = Action(action="observe")
+    args = components(
+        tmp_path,
+        [a, a, a, Plan(steps=["Changer la source"]), a, a, a, Plan(steps=["Autre approche"]), a, a, a],
+    )
+    args[4].create_task("t", "recherche")
+    engine = AgentEngine(*args, "t")
+    pending = asyncio.Event()
+    engine.decision.emit = lambda kind, data: pending.set() if kind == "intervention" else None
+    job = asyncio.create_task(engine.run("recherche"))
+    try:
+        await asyncio.wait_for(pending.wait(), 2)
+        assert engine.phase == "WAITING_USER"
+        assert "deux changements" in engine.decision.pending["message"]
+        engine.decision.resolve(engine.decision.pending["id"], False)
+        await job
+        assert args[4].tasks()[0]["status"] == "cancelled"
+        assert not any(e["kind"] == "error" for e in args[4].events("t"))
+    finally:
+        if not job.done():
+            job.cancel()
+            try:
+                await job
+            except asyncio.CancelledError:
+                pass
+        args[4].close()
+
+
+async def test_wrong_year_search_is_not_executed(tmp_path):
+    bad = Action(action="search", value="billets de train Paris Marrakech août 2023")
+    good = Action(action="search", value="vol Paris Marrakech 20 au 30 août 2027")
+    args = components(
+        tmp_path,
+        [
+            bad,
+            Plan(steps=["Respecter le vol et les dates"]),
+            good,
+            Action(action="finish", answer="Aucun tarif vérifié"),
+        ],
+    )
+    args[4].create_task("t", "vol Paris Marrakech 20 au 30 août 2027")
+    try:
+        await AgentEngine(*args, "t").run("vol Paris Marrakech 20 au 30 août 2027")
+        args[3].execute.assert_awaited_once_with(good)
+        assert args[4].tasks()[0]["status"] == "completed"
+    finally:
+        args[4].close()

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query, Response
 
-from core.models import Approval, Preference, TaskRequest
+from core.models import Approval, PermissionSettings, Preference, TaskRequest
 from vision.screenshot_processor import capture
 
 
@@ -20,6 +20,17 @@ def create_router(manager, storage, memory, browser, llm, files):
     @api.get("/state")
     async def state():
         return {**manager.state(), "tabs": browser.tab_state()}
+
+    @api.get("/settings/permissions")
+    async def permissions():
+        return {"mode": manager.permission_mode}
+
+    @api.put("/settings/permissions")
+    async def set_permissions(body: PermissionSettings):
+        if body.mode == "always_accept" and not body.accept_sensitive_risk:
+            raise HTTPException(422, "Confirmez le risque des actions sensibles sans validation")
+        manager.set_permission_mode(body.mode)
+        return {"mode": manager.permission_mode}
 
     @api.get("/tasks")
     async def tasks():
@@ -68,6 +79,8 @@ def create_router(manager, storage, memory, browser, llm, files):
 
     @api.put("/preferences/{key}")
     async def preference(key: str, body: Preference):
+        if key == "permission_mode":
+            raise HTTPException(422, "Utilisez le réglage de permissions dédié")
         if len(key) > 100:
             raise HTTPException(422, "Clé trop longue")
         memory.set_preference(key, body.value)

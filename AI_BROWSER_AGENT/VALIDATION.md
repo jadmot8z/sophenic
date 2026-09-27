@@ -1,6 +1,6 @@
 # Rapport de validation
 
-Date : 27 septembre 2026 — version 1.1.0.
+Date : 27 septembre 2026 — version 1.2.0.
 
 ## Exécuté dans l'environnement de développement
 
@@ -8,7 +8,7 @@ Environnement disponible : Linux, Python **3.11.2**. Le projet et ses lanceurs c
 Les dépendances ont été installées directement pour pouvoir vérifier le code dans cet environnement ;
 cela ne remplace pas la recette avec la version Python déclarée dans `pyproject.toml`.
 
-- `pytest -q --ignore=tests/test_browser.py` : **58 tests réussis**.
+- `pytest -q --ignore=tests/test_browser.py` : **79 tests réussis**.
 - `ruff check .` : réussi.
 - `ruff format --check .` : réussi.
 - Compilation des modules Python : réussie.
@@ -28,6 +28,14 @@ après connexion, suspension du budget actif et passage des précisions utilisat
 La capture fournie par l'utilisateur montre l'interface 1.0 en fonctionnement et Ollama connecté sous
 Windows. Elle montre aussi un refus de capacité du modèle au stade du plan ; les prompts et le flux
 d'intervention ont été corrigés pour cela. Cela ne valide pas encore un envoi Gmail avec la version 1.1.
+
+Tests supplémentaires 1.2 : trois politiques de permission, consentement explicite pour activer
+always_accept, rejet de contournement via l'API générique, persistance du mode, changement de mode sans
+résolution implicite d'une confirmation, pauses humaines conservées en mode automatique, classification
+d'une recherche comme lecture, progression par champ/focus/scroll, raisons variables n'évitant pas
+l'anti-boucle, clarification d'année avant appel LLM, date locale fraîche dans les prompts, rejet réel
+d'une recherche 2023 avant exécution, replanification sur boucle puis attente utilisateur si nécessaire.
+Le test Chromium (non exécuté ici) vérifie également le changement d'empreinte lors d'une saisie.
 
 Un avertissement de dépréciation Starlette/TestClient relatif à httpx est émis par les versions installées.
 Il ne provoque pas d'échec et ne concerne pas les appels de production à Ollama.
@@ -68,3 +76,19 @@ Ne pas utiliser un achat ou une suppression réels comme premier test de recette
 - Tester « Envoyer » déclaré routine par un double de modèle : le contrôle local exige tout de même l'accord.
 - Annuler ou laisser expirer une intervention : aucune reprise automatique.
 - Si Google refuse le navigateur, vérifier le signalement du blocage ; ne pas contourner sa protection.
+
+## Recette supplémentaire 1.2
+
+1. Mode sensible : demander « billet Paris Marrakech du 20 au 30 août aller-retour » ; vérifier qu’une
+   question précède toute recherche. Répondre avec l’année souhaitée et « avion ». Contrôler la requête réelle.
+2. Choisir « Toujours demander » : une simple recherche doit demander confirmation.
+3. Choisir « Toujours accepter » : lire l’avertissement et annuler ; le mode doit rester inchangé. Refaire
+   avec accord sur un compte de test uniquement ; les actions sensibles ne doivent plus être confirmées.
+4. Vérifier que les pauses de connexion/information fonctionnent encore, et que le mode choisi persiste.
+5. Remplir un formulaire de plus de huit champs : les valeurs modifiées doivent compter comme progrès.
+6. Sur une page réellement bloquée, vérifier les messages de récupération puis l'intervention, sans faux succès.
+7. Confirmer que les contraintes de temps/étapes restent effectives, même après une récupération.
+
+Les tests déterministes ne démontrent ni la qualité de Qwen3 sur toutes les requêtes, ni la disponibilité
+d’un billet réel, ni une automatisation universelle des sites de voyage. Aucun parcours de réservation
+ou paiement réel n’a été effectué dans l’environnement de développement.

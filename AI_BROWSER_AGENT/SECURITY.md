@@ -5,7 +5,7 @@
 - Serveur lié à `127.0.0.1`, validation Host, rejet Origin/cross-site, jeton anti-CSRF par exécution.
 - Aucune ressource distante dans l'interface ; CSP restrictive, anti-framing, rendu via `textContent`.
 - Pas de commandes shell, JS produit par le modèle, téléchargement automatique ni chemins de fichier libres.
-- Consentement sélectif : indicateur `impact` du modèle + contrôles locaux sur libellés, URL, soumissions,
+- Par défaut, consentement sélectif : indicateur `impact` du modèle + contrôles locaux sur libellés, URL, soumissions,
   uploads et Entrée hors recherche. Confirmation des risques détectés ; refus terminal et expiration.
 - Connexion manuelle : pages Google d'authentification et champs password visibles provoquent une pause.
   Le modèle peut aussi demander une intervention via `ask_user`. Aucun outil n'est exécuté pendant cette
@@ -16,6 +16,20 @@
   l'URL, refus des IP privées/réservées et de la résolution DNS privée pour les requêtes interceptées,
   y compris les sous-ressources. WebSockets et service workers désactivés.
 - Arrêt = annulation du job + fermeture du navigateur, pas simplement arrêt du polling UI.
+
+## Modes utilisateur dans 1.2
+
+L’utilisateur peut choisir « Toujours demander », « Actions sensibles uniquement » (défaut), ou
+**« Toujours accepter »**. Ce dernier désactive volontairement toutes les confirmations d’actions,
+**y compris paiements, envois, suppressions, publications et uploads**. Son activation affiche un
+avertissement explicite et l’API exige `accept_sensitive_risk: true`. Le réglage persiste après redémarrage.
+Il ne peut pas être modifié par une commande du modèle ni via l’API de préférences générique.
+Les interventions de connexion/clarification et restrictions réseau/fichiers restent appliquées.
+Changer de mode ne répond pas à une confirmation déjà en attente et n’annule pas une action déjà lancée.
+
+Les heuristiques décrites ci-dessous ne s'appliquent comme barrière de consentement qu'au mode sensible.
+Le mode « Toujours accepter » ne protège pas contre une transaction erronée du modèle. Utiliser des
+comptes jetables et surveiller Chromium. Les protections de fichiers et d'URL ne remplacent pas cette validation.
 
 ## Changement de politique dans 1.1
 

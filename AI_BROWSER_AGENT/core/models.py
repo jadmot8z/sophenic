@@ -4,6 +4,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+PermissionMode = Literal["always_ask", "sensitive", "always_accept"]
+
+
+class PermissionSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: PermissionMode
+    accept_sensitive_risk: bool = False
+
+
 ActionName = Literal[
     "open_url",
     "back",

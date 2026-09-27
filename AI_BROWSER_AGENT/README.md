@@ -1,4 +1,4 @@
-# AI Browser Agent — 1.1.0
+# AI Browser Agent — 1.2.0
 
 Application locale pour Windows 10/11 : **FastAPI + Playwright/Chromium + Ollama `qwen3:14b`**.
 L'interface de bureau s'ouvre dans votre navigateur sur `http://127.0.0.1:8765` ; le navigateur
@@ -57,10 +57,11 @@ Exemple :
 > Compare les prix et indique les URL des sources, sans passer commande.
 
 - L'agent crée un plan puis observe la page, décide d'une action et la soumet au validateur.
-- Les navigations, recherches, clics ordinaires, saisies de brouillons et sélections se font sans
+- Par défaut, en mode **Actions sensibles uniquement**, les navigations, recherches, clics ordinaires,
+  saisies de brouillons et sélections se font sans
   confirmation systématique. Le modèle signale les actions sensibles via `impact` et le backend
   vérifie aussi les cibles, soumissions et touches pouvant engager une action finale.
-- Un envoi de message, un achat, une publication, une suppression ou un upload détecté exige
+- Dans ce mode par défaut, un envoi, un achat, une publication, une suppression ou un upload détecté exige
   confirmation. Les commandes ambiguës (ex. bouton de soumission inconnu ou Entrée hors recherche)
   peuvent aussi déclencher une confirmation par prudence.
 - Si une connexion, un CAPTCHA ou une information manque, l'agent utilise **ask_user** et passe en
@@ -77,24 +78,57 @@ Exemple :
 - Les conversations précédentes et leurs événements sont accessibles dans la barre latérale.
 - Les préférences sont enregistrées explicitement par l'utilisateur ; le modèle ne peut pas les modifier.
 - Pour autoriser un fichier, placez-le dans `data\uploads`. Le modèle ne peut envoyer que les fichiers
-  de ce dossier ; chaque envoi reste soumis à confirmation. Aucun accès arbitraire au disque.
+  de ce dossier ; la confirmation dépend du mode de permission choisi. Aucun accès arbitraire au disque.
 
 **Consentement sélectif, pas garantie universelle.** La classification du modèle et les heuristiques DOM
 peuvent manquer une action sensible ou demander une confirmation inutile. Une visite, une saisie ou un lien
 peut déjà déclencher un effet côté site. Gardez Chromium visible et utilisez des comptes de test.
 Le modèle ne peut pas désactiver une confirmation imposée par le backend.
 
+### Trois modes de permission
+
+Les trois boutons au-dessus de la conversation prennent effet sur les **prochaines actions** et le
+choix est conservé dans SQLite, y compris après redémarrage. Une demande déjà affichée reste à traiter.
+
+| Bouton | Comportement |
+|---|---|
+| **Toujours demander** | Accord avant chaque action navigateur, y compris recherche/défilement/onglets ; observation, planification et réponse finale restent automatiques. |
+| **Actions sensibles uniquement** | Mode par défaut : lecture/recherche/rédaction automatiques, confirmation des effets sensibles détectés et soumissions ambiguës. |
+| **Toujours accepter** | Pas de confirmation d’action, **y compris envoi, paiement, suppression, publication et upload**. Avertissement et accord explicite à l’activation. |
+
+Même en « Toujours accepter », les informations manquantes, CAPTCHA et connexions restent des pauses
+humaines : ce mode ne donne pas de mot de passe à l’agent et ne peut pas deviner une année. Les restrictions
+d’URL et de fichiers restent actives. N’utilisez ce mode qu’avec des comptes de test et sous surveillance.
+Il n'est pas possible pour le modèle de changer ce réglage via ses commandes JSON.
+
+### Dates, billets et progression
+
+L'horloge de votre ordinateur (date locale et fuseau) est injectée dans chaque plan et décision.
+Une demande de billets datée en français/anglais ou au format numérique mais sans année est clarifiée
+**avant la recherche** ; le modèle reçoit ensuite votre précision. Exemple : « billet du 20 au 30 août
+Paris Marrakech aller-retour » → « Pour quelle année, et quel moyen de transport ? ».
+Une requête `search` qui invente une autre année ou remplace un vol explicitement demandé par un train
+est refusée localement et corrigée via replanification. Ces contrôles couvrent ce cas courant, pas toutes
+les façons d’écrire une date ni toutes les erreurs possibles d’un modèle. Les dates passées explicites
+et les demandes complexes restent à clarifier par le modèle. Un tarif n’est jamais garanti sans source.
+
+L'anti-boucle compare aussi les champs (empreinte locale sans valeur brute dans le prompt), le focus,
+le défilement et les onglets. Une saisie peut donc être un progrès même si le texte du corps de page
+ne change pas. Lors d'un blocage, deux replanifications sont tentées puis une intervention est demandée.
+La limite totale d'étapes n'est pas supprimée : si elle est atteinte, le statut est `needs_attention`,
+avec un message de tâche incomplète plutôt qu'une fausse réussite.
+
 ### Exemple Gmail
 
 « Ouvre Gmail et prépare un message “Salut” pour ami@example.com. »
 
 L'agent peut ouvrir le service, demander votre connexion manuelle, reprendre, préparer le brouillon,
-puis demander l'accord avant **Envoyer** et vérifier le résultat. Si vous donnez seulement un prénom,
+puis appliquer le mode choisi avant **Envoyer** et vérifier le résultat. Si vous donnez seulement un prénom,
 il doit demander le destinataire exact, pas inventer une adresse. Il n'utilise pas d'API Gmail ni OAuth
 propre à l'application : il agit via la session du navigateur. Google peut refuser la connexion depuis
 un navigateur automatisé : ce blocage réel doit être signalé, il n'est pas contourné.
 
-### Mise à jour depuis 1.0
+### Mise à jour depuis 1.0 ou 1.1
 
 Fermez le backend (Ctrl+C dans sa console). Sauvegardez votre dossier `data`, puis extrayez le nouveau
 ZIP et copiez son contenu dans le dossier `AI_BROWSER_AGENT` existant en remplaçant les fichiers du
@@ -143,7 +177,7 @@ Détails des responsabilités et décisions : [ARCHITECTURE.md](ARCHITECTURE.md)
 | Plusieurs onglets | Identifiants stables `t1`, `t2`, etc. |
 | Texte / HTML / formulaires / liens / boutons | Analyse du DOM rendu, éléments et texte du viewport |
 | Clic / double clic / saisie / clavier / défilement / sélection | Commandes validées puis Playwright |
-| Upload | Dossier autorisé + confirmation |
+| Upload | Dossier autorisé + politique de permission choisie |
 | Recherche | Navigation Google réelle ; pas d'API de recherche payante |
 | Erreurs | Codes HTTP, exceptions Playwright, alertes et champs invalides du DOM |
 | Vérification | Nouvelle observation après chaque action ; comparaison et correction du plan |
@@ -177,7 +211,9 @@ Paramètres typés : `core/config.py`. Le modèle par défaut obligatoire est `q
 Limites par défaut : 40 étapes, 15 minutes de temps actif par tâche, 180 s par appel LLM, 15 s par action
 Playwright, 180 s pour une confirmation sensible. Une intervention utilisateur dispose de 15 minutes
 (`human_timeout`) et suspend le budget de temps actif, mais pas le bouton Arrêter. Une réparation JSON maximum. Trois actions identiques
-sur une page inchangée, huit étapes sans changement ou trois erreurs consécutives arrêtent la tâche.
+sur une page inchangée ou huit étapes sans progrès déclenchent une récupération (deux replanifications
+maximum avant intervention). Trois erreurs consécutives demandent également une intervention.
+Le budget de temps et les 40 étapes restent des limites fermes ; la récupération n’incrémente pas ces budgets.
 
 ## Développement et tests
 
@@ -204,7 +240,7 @@ versions ; pour un déploiement reproductible, figez celles validées sur votre 
 - **Latence / timeout** : vérifier RAM, VRAM et `ollama ps`, fermer les jeux/autres charges GPU ; ajuster
   les limites dans `core/config.py` si nécessaire, sans attendre des performances garanties.
 - **Port 8765 occupé** : fermer l'ancienne instance, ne pas lancer un deuxième backend.
-- **Élément périmé** : le DOM a changé ; l'agent doit observer et demander une nouvelle confirmation.
+- **Élément périmé** : le DOM a changé ; l'agent doit observer à nouveau puis appliquer le mode de permission choisi.
 
 Cette application est indépendante de SOPHENIC déjà présent dans le dépôt. Aucun fichier de
 l'application existante ou de ses archives n'a été remplacé.
