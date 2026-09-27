@@ -1,6 +1,6 @@
 # Rapport de validation
 
-Date : 27 septembre 2026 — version 1.2.0.
+Date : 27 septembre 2026 — version 1.3.0.
 
 ## Exécuté dans l'environnement de développement
 
@@ -8,7 +8,7 @@ Environnement disponible : Linux, Python **3.11.2**. Le projet et ses lanceurs c
 Les dépendances ont été installées directement pour pouvoir vérifier le code dans cet environnement ;
 cela ne remplace pas la recette avec la version Python déclarée dans `pyproject.toml`.
 
-- `pytest -q --ignore=tests/test_browser.py` : **79 tests réussis**.
+- `pytest -q --ignore=tests/test_browser.py` : **98 tests réussis**.
 - `ruff check .` : réussi.
 - `ruff format --check .` : réussi.
 - Compilation des modules Python : réussie.
@@ -36,6 +36,20 @@ d'une recherche comme lecture, progression par champ/focus/scroll, raisons varia
 l'anti-boucle, clarification d'année avant appel LLM, date locale fraîche dans les prompts, rejet réel
 d'une recherche 2023 avant exécution, replanification sur boucle puis attente utilisateur si nécessaire.
 Le test Chromium (non exécuté ici) vérifie également le changement d'empreinte lors d'une saisie.
+
+Tests supplémentaires 1.3 : création d'onglet si absent, sélection d'un onglet restant, concurrence de
+récupération, relance de contexte sans navigation, page fermée pendant observation, page crashée,
+tentatives bornées et diagnostic d'installation, absence de retry sur action interrompue, canaux de lancement
+et chemins de profil dédié, API/version/validation/persistance, cible fermée pendant décision, intervention
+sur envoi incertain même en mode toujours accepter, refus Google détecté en français/anglais uniquement
+sur sa page d’authentification, absence de confusion avec un simple mot de passe requis, arrêt de la
+tâche comme incomplète sans répétition des actions de connexion. Ces tests de cycle de vie utilisent des doubles,
+pas un Chromium simulé dans le code de production.
+
+Nouvel essai du téléchargement Playwright headless Chromium : échec TLS `ECONNRESET` sur
+`cdn.playwright.dev`. Les tests d'intégration réels restent non exécutés ici. Ils comprennent maintenant
+la fermeture du dernier onglet, la fermeture du navigateur et la persistance d'un cookie de test dans
+un profil dédié. La connexion à Google et la persistance de sessions Google ne sont pas revendiquées.
 
 Un avertissement de dépréciation Starlette/TestClient relatif à httpx est émis par les versions installées.
 Il ne provoque pas d'échec et ne concerne pas les appels de production à Ollama.
@@ -92,3 +106,16 @@ Ne pas utiliser un achat ou une suppression réels comme premier test de recette
 Les tests déterministes ne démontrent ni la qualité de Qwen3 sur toutes les requêtes, ni la disponibilité
 d’un billet réel, ni une automatisation universelle des sites de voyage. Aucun parcours de réservation
 ou paiement réel n’a été effectué dans l’environnement de développement.
+
+## Recette supplémentaire 1.3 sur Windows
+
+1. Fermer l'ancienne console, mettre à jour et vérifier `v1.3.0` dans l'interface (pas seulement l'historique).
+2. En Chromium, fermer le dernier onglet pendant la tâche : nouvelle observation et page vierge attendues.
+3. Fermer le navigateur pendant THINK puis pendant une confirmation : la cible précédente ne doit pas être exécutée.
+4. Interrompre une action sur un formulaire local de test : demander la vérification du résultat, pas de double clic/envoi automatique.
+5. Choisir Chrome puis Edge installés, Appliquer et Ouvrir : vérifier le moteur réel lancé.
+6. Cocher le profil dédié, se connecter sur un compte de test si le site l'accepte, fermer et relancer.
+7. Tester un navigateur absent ou un profil verrouillé : diagnostic explicite après tentatives bornées.
+8. Si Google affiche un refus « navigateur non sécurisé », arrêter ce parcours ; ne pas désactiver TLS
+   ou les protections. Tester séparément l'accès dans le navigateur normal et envisager une API officielle.
+9. Exécuter tous les tests, dont `tests/test_browser.py`, après installation effective de Chromium.

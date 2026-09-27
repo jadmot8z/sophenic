@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +19,8 @@ class Settings(BaseModel):
     action_timeout: int = Field(default=15000, ge=1000)
     context_size: int = Field(default=16384, ge=4096)
     human_timeout: int = Field(default=900, ge=30, le=3600)
+    browser_channel: Literal["chromium", "chrome", "msedge"] = "chromium"
+    remember_session: bool = False
     headless: bool = False
 
     @classmethod
@@ -25,5 +28,7 @@ class Settings(BaseModel):
         return cls(
             data_dir=Path(os.environ.get("AIBA_DATA_DIR", str(ROOT / "data"))),
             ollama_url=os.environ.get("AIBA_OLLAMA_URL", "http://127.0.0.1:11434"),
+            browser_channel=os.environ.get("AIBA_BROWSER_CHANNEL", "chromium"),
+            remember_session=os.environ.get("AIBA_REMEMBER_SESSION") == "1",
             headless=os.environ.get("AIBA_HEADLESS") == "1",
         )

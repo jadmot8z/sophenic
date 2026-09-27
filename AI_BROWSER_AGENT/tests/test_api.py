@@ -57,3 +57,33 @@ def test_permission_modes_api_and_persistence(tmp_path):
         assert client.get("/api/state").json()["permission_mode"] == "always_accept"
     with TestClient(create_app(settings), base_url="http://127.0.0.1:8765") as client:
         assert client.get("/api/settings/permissions").json()["mode"] == "always_accept"
+
+
+def test_browser_settings_and_version(tmp_path):
+    settings = Settings(data_dir=tmp_path)
+    with TestClient(create_app(settings), base_url="http://127.0.0.1:8765") as client:
+        headers = {"X-Agent-Token": client.get("/api/session").json()["token"]}
+        assert client.get("/api/version").json()["version"] == "1.3.0"
+        assert client.get("/api/settings/browser").json()["channel"] == "chromium"
+        assert client.put("/api/settings/browser", json={"channel": "chrome"}).status_code == 403
+        assert (
+            client.put(
+                "/api/settings/browser", headers=headers, json={"channel": "arbitrary.exe"}
+            ).status_code
+            == 422
+        )
+        result = client.put(
+            "/api/settings/browser", headers=headers, json={"channel": "msedge", "remember_session": True}
+        )
+        assert result.status_code == 200
+        assert result.json()["remember_session"] is True
+        assert (
+            client.put(
+                "/api/preferences/browser_channel", headers=headers, json={"value": "chrome"}
+            ).status_code
+            == 422
+        )
+    with TestClient(create_app(Settings(data_dir=tmp_path)), base_url="http://127.0.0.1:8765") as client:
+        settings = client.get("/api/settings/browser").json()
+        assert settings["channel"] == "msedge"
+        assert settings["remember_session"] is True

@@ -1,8 +1,8 @@
-# AI Browser Agent — 1.2.0
+# AI Browser Agent — 1.3.0
 
 Application locale pour Windows 10/11 : **FastAPI + Playwright/Chromium + Ollama `qwen3:14b`**.
 L'interface de bureau s'ouvre dans votre navigateur sur `http://127.0.0.1:8765` ; le navigateur
-piloté est une **autre fenêtre Chromium réelle**. Il n'y a aucun service LLM cloud, navigateur
+piloté est une **autre fenêtre réelle**, Chromium par défaut ou Chrome/Edge installé selon votre choix. Il n'y a aucun service LLM cloud, navigateur
 simulé, réponse de démonstration ou exécution de code produit par le modèle.
 
 > **État de livraison :** implémentation fonctionnelle, modulaire, avec tests unitaires/API.
@@ -69,7 +69,7 @@ Exemple :
   dans le panneau, puis cliquez sur **J’ai terminé — Reprendre**. L'agent relit alors la page.
   Aucun mot de passe, code 2FA ou cookie ne doit être fourni dans le chat.
 - Les pages `accounts.google.com` et champs de mot de passe visibles déclenchent une pause automatique,
-  indépendamment du modèle. Le navigateur ne mémorise pas vos identifiants après sa fermeture.
+  indépendamment du modèle. Les sessions ne sont conservées après fermeture que si l’option de profil dédié est activée.
 - Vérifiez la page Chromium avant chaque confirmation. **Refuser arrête la tâche**, sans permettre
   au modèle de reformuler pour contourner votre refus.
 - « Arrêter » annule les appels en cours et ferme Chromium. Une action déjà envoyée à un site
@@ -84,6 +84,36 @@ Exemple :
 peuvent manquer une action sensible ou demander une confirmation inutile. Une visite, une saisie ou un lien
 peut déjà déclencher un effet côté site. Gardez Chromium visible et utilisez des comptes de test.
 Le modèle ne peut pas désactiver une confirmation imposée par le backend.
+
+### Navigateur installé, connexion et onglet fermé
+
+Dans le panneau de droite, choisissez **Chromium Playwright**, **Google Chrome installé** ou
+**Microsoft Edge installé**, puis **Appliquer** et **Ouvrir le navigateur**. Chrome/Edge doit être
+installé sur Windows ; l'application ne télécharge pas ces produits à votre place et ne bascule pas
+silencieusement vers un autre navigateur. Les réglages ne peuvent pas changer pendant une tâche.
+
+L'option **Conserver la session dans un profil dédié** conserve les cookies autorisés par les sites
+entre les lancements, dans `data/browser_profiles/<navigateur>`. Elle est désactivée par défaut.
+Ce n'est **pas votre profil Chrome/Edge personnel**, et aucun cookie n'est importé depuis celui-ci.
+Connectez-vous manuellement dans cette fenêtre dédiée si le site l'accepte. Les paramètres sont
+conservés ; les variables d'environnement ne remplacent pas un choix déjà enregistré dans l'interface.
+
+**Google « Ce navigateur n'est peut-être pas sécurisé » :** ce message peut correspondre au refus
+d'un navigateur automatisé, pas à un simple problème de marque ou de certificat. Chrome officiel
+et un profil persistant ne garantissent pas que Google accepte l'automatisation. Les principaux messages
+français/anglais de refus reconnus sur accounts.google.com arrêtent la tâche comme incomplète, avec
+un diagnostic, au lieu de répéter la demande de connexion. Aucun drapeau de
+camouflage, désactivation TLS, import de cookies ou contournement de CAPTCHA n'est utilisé. Si le
+service refuse, effectuez l'opération dans votre navigateur normal, ou envisagez une intégration
+via l'API officielle/OAuth du service (non implémentée ici).
+
+Si le dernier onglet est fermé, une nouvelle observation crée un onglet vierge. Si le navigateur
+est fermé/déconnecté, une relance bornée est tentée. Les cibles DOM précédentes ne sont pas réutilisées.
+**Aucune URL ni commande n'est rejouée automatiquement par le récupérateur.** Si la fermeture survient
+pendant un envoi ou juste après une action, une intervention demande de vérifier son résultat avant de
+poursuivre, même en « Toujours accepter », afin d'éviter les doublons. L'application ne prétend pas
+pouvoir reconstruire un résultat de transaction inconnu. Un navigateur non installé, profil verrouillé
+ou crash persistant reste un blocage explicite, pas une boucle de relancement sans fin.
 
 ### Trois modes de permission
 
@@ -128,12 +158,14 @@ il doit demander le destinataire exact, pas inventer une adresse. Il n'utilise p
 propre à l'application : il agit via la session du navigateur. Google peut refuser la connexion depuis
 un navigateur automatisé : ce blocage réel doit être signalé, il n'est pas contourné.
 
-### Mise à jour depuis 1.0 ou 1.1
+### Mise à jour depuis une version précédente
 
 Fermez le backend (Ctrl+C dans sa console). Sauvegardez votre dossier `data`, puis extrayez le nouveau
 ZIP et copiez son contenu dans le dossier `AI_BROWSER_AGENT` existant en remplaçant les fichiers du
 programme. **Ne supprimez pas `data` ni `.venv`**. Relancez `installer.bat`, puis `lancer.bat`, et faites
-**Ctrl+F5** sur l'interface. Les anciennes tâches ne sont pas rejouées : démarrez une nouvelle demande.
+**Ctrl+F5** sur l'interface. Vérifiez **v1.3.0** en haut à gauche (API `/api/version`). Si elle
+n’apparaît pas, une ancienne console ou un autre dossier est encore utilisé. Les anciens messages
+d’erreur restent dans l’historique ; testez une nouvelle tâche. Les anciennes tâches ne sont pas rejouées : démarrez une nouvelle demande.
 
 ## Architecture
 
@@ -157,9 +189,11 @@ Détails des responsabilités et décisions : [ARCHITECTURE.md](ARCHITECTURE.md)
 - `data/memory.sqlite3` : objectifs, réponses, états, événements, préférences et erreurs.
 - `data/logs/agent.log` : journal technique tournant (2 Mo × 4 fichiers maximum).
 - `data/uploads/` : seuls fichiers disponibles à l'envoi.
-- Sessions Chromium **éphémères**, sans réutilisation de votre profil personnel et sans
-  persistance des cookies après fermeture du navigateur. Les tâches successives partagent le
-  même contexte tant que l'application reste ouverte : fermez l'application pour isoler deux comptes.
+- Sessions **éphémères par défaut**, ou profil dédié persistant si vous cochez l'option. Le profil
+  personnel n'est jamais réutilisé. Les tâches successives partagent la session courante.
+  En mode persistant, fermer l'application ne déconnecte pas nécessairement les comptes : déconnectez-vous
+  sur les sites ou fermez l'application puis supprimez le profil dédié pour effacer ces sessions.
+  Désactiver l'option n'efface pas les données d'un ancien profil, réutilisées si vous la réactivez.
 - Captures et observations complètes sont en mémoire, pas archivées automatiquement.
 - Les valeurs saisies sont masquées dans les événements d'action persistés ; elles sont visibles
   dans la confirmation temporaire. Les URL journalisées omettent query string et fragment.
@@ -206,6 +240,8 @@ Paramètres typés : `core/config.py`. Le modèle par défaut obligatoire est `q
 |---|---|---|
 | `AIBA_DATA_DIR` | `AI_BROWSER_AGENT/data` | Stockage local alternatif |
 | `AIBA_OLLAMA_URL` | `http://127.0.0.1:11434` | Instance Ollama ; conserver une adresse locale |
+| `AIBA_BROWSER_CHANNEL` | `chromium` | `chrome` ou `msedge` pour le navigateur installé, avant tout choix sauvegardé |
+| `AIBA_REMEMBER_SESSION` | non défini | `1` pour conserver un profil dédié, avant tout choix sauvegardé |
 | `AIBA_HEADLESS` | non défini | `1` pour les tests sans fenêtre |
 
 Limites par défaut : 40 étapes, 15 minutes de temps actif par tâche, 180 s par appel LLM, 15 s par action
@@ -235,6 +271,8 @@ versions ; pour un déploiement reproductible, figez celles validées sur votre 
 - **Ollama inaccessible** : vérifier `ollama list`, puis `ollama serve` si le service n'est pas déjà actif.
 - **Modèle absent** : `ollama pull qwen3:14b` ; utiliser une version récente d'Ollama acceptant les
   schémas JSON dans `/api/chat` et `think: false`.
+- **Onglet fermé** : l’agent recrée une page à la prochaine observation ; utilisez aussi « Ouvrir le navigateur » hors tâche.
+- **Chrome/Edge absent ou profil verrouillé** : installer le navigateur choisi ou revenir à Chromium ; fermer l’autre instance utilisant le profil dédié.
 - **Chromium absent** : réexécuter `python -m playwright install chromium` avec le Python de `.venv`.
 - **Erreur TLS au téléchargement** : vérifier proxy/pare-feu/certificats ; ne désactivez pas la validation TLS.
 - **Latence / timeout** : vérifier RAM, VRAM et `ollama ps`, fermer les jeux/autres charges GPU ; ajuster

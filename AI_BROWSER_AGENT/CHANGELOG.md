@@ -1,3 +1,15 @@
+# 1.3.0 — 27 septembre 2026
+
+- Récupération bornée des onglets fermés, contextes déconnectés et pages crashées, avec invalidation des cibles.
+- Nouvelle observation après fermeture manuelle ; pas de rejeu automatique des actions ou URL.
+- Interruption pendant une action : vérification humaine du résultat incertain, y compris en Toujours accepter.
+- Choix Chromium / Chrome installé / Edge installé et option de profil dédié persistant.
+- Ouverture manuelle du navigateur depuis l'UI, réglages interdits pendant une tâche.
+- Refus explicite Google « navigateur non sécurisé » (motifs français/anglais reconnus) : diagnostic et tâche incomplète, sans boucle de connexion.
+- Version affichée et endpoint `/api/version` pour identifier les installations/processus anciens.
+- 98 tests unitaires/API réussis ; Chrome/Edge Windows et connexions Google non validés ici.
+- Les refus de connexion par les services ne sont pas contournés ni présentés comme résolus.
+
 # 1.2.0 — 27 septembre 2026
 
 - Trois boutons : Toujours demander / Actions sensibles uniquement / Toujours accepter.

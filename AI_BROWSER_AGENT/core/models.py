@@ -7,6 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 PermissionMode = Literal["always_ask", "sensitive", "always_accept"]
 
 
+class BrowserSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    channel: Literal["chromium", "chrome", "msedge"]
+    remember_session: bool = False
+
+
 class PermissionSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     mode: PermissionMode

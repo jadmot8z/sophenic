@@ -44,9 +44,14 @@ def create_app(settings=None):
         log.addHandler(handler)
         storage = SQLiteStorage(settings.data_dir / "memory.sqlite3")
         llm = OllamaClient(settings)
+        memory = LongTermMemory(storage)
+        saved = memory.preferences()
+        if saved.get("browser_channel") in {"chromium", "chrome", "msedge"}:
+            settings.browser_channel = saved["browser_channel"]
+        if saved.get("remember_session") in {"0", "1"}:
+            settings.remember_session = saved["remember_session"] == "1"
         browser = ChromiumController(settings)
         files = FileTools(settings.data_dir)
-        memory = LongTermMemory(storage)
         manager = TaskManager(settings, llm, browser, BrowserTools(browser, files), storage, memory)
         app.state.manager = manager
         app.state.storage = storage

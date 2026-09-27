@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let token = '', active = null, after = 0, confirmation = null, screenshotURL = null, busy = false, pendingId = null, permissionMode = 'sensitive', permissionSaving = false;
+let token = '', active = null, after = 0, confirmation = null, screenshotURL = null, busy = false, pendingId = null, permissionMode = 'sensitive', permissionSaving = false, browserSaving = false;
 async function api(path, method = 'GET', body) {
   const response = await fetch('/api' + path, {method, headers: {'Content-Type': 'application/json', 'X-Agent-Token': token}, body: body === undefined ? undefined : JSON.stringify(body)});
   if (!response.ok) { let detail; try { detail = (await response.json()).detail; } catch { detail = response.statusText; } throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail)); }
@@ -17,6 +17,15 @@ async function poll() {
   try {
     const state = await api('/state'); busy = state.busy;
     if (!permissionSaving) showPermissions(state.permission_mode);
+    $('app-version').textContent = 'LOCAL WORKSPACE · v' + state.version;
+    const browser = state.browser;
+    if (browser) $('browser-status').textContent = (browser.running ? '● Ouvert · ' : '○ Fermé · ') +
+      browser.channel + (browser.remember_session ? ' · Profil conservé' : ' · Session temporaire') +
+      (browser.last_recovery ? ' — ' + browser.last_recovery : '');
+    $('save-browser').disabled = busy || browserSaving;
+    $('open-browser').disabled = busy || browserSaving;
+    $('browser-channel').disabled = busy || browserSaving;
+    $('remember-session').disabled = busy || browserSaving;
     $('phase').textContent = state.phase; $('stop').disabled = !busy; $('start').disabled = busy;
     confirmation = state.confirmation;
     $('approval').hidden = !confirmation;
@@ -33,13 +42,13 @@ async function poll() {
          'Cible : ' + JSON.stringify(confirmation.element), 'Page : ' + confirmation.page_url].filter(Boolean).join('\n\n');
       $('human-response-label').hidden = !human;
       $('approval-hint').textContent = human ?
-        'Répondez à la question ci-dessous ou réalisez l’étape demandée dans Chromium. L’agent attend sans agir. Ne saisissez jamais de mot de passe ici.' :
-        'Vérifiez destinataire, contenu, montant et effet dans Chromium avant d’autoriser.';
+        'Répondez à la question ci-dessous ou réalisez l’étape demandée dans le navigateur piloté. L’agent attend sans agir. Ne saisissez jamais de mot de passe ici.' :
+        'Vérifiez destinataire, contenu, montant et effet dans le navigateur piloté avant d’autoriser.';
       $('approve').textContent = human ? 'J’ai terminé — Reprendre' : 'Autoriser cette action';
       $('reject').textContent = human ? 'Annuler la tâche' : 'Refuser et arrêter';
     }
     $('empty-preview').textContent = state.tabs.length ?
-      'Chromium est ouvert. Cliquez sur Actualiser la capture pour voir l’onglet actif.' :
+      'Le navigateur est ouvert. Cliquez sur Actualiser la capture pour voir l’onglet actif.' :
       'Chromium s’ouvrira au démarrage de la première tâche.';
     $('tabs').replaceChildren();
     state.tabs.forEach(tab => { const item = document.createElement('div'); item.textContent = `${tab.active ? '●' : '○'} ${tab.id} · ${tab.url}`; $('tabs').append(item); });
@@ -102,9 +111,38 @@ document.querySelectorAll('[data-permission]').forEach(button => {
     finally { permissionSaving = false; showPermissions(permissionMode); }
   };
 });
+function showBrowserSettings(settings) {
+  $('browser-channel').value = settings.channel;
+  $('remember-session').checked = settings.remember_session;
+}
+$('browser-settings').onsubmit = async event => {
+  event.preventDefault();
+  if (busy || browserSaving) return;
+  browserSaving = true;
+  $('save-browser').disabled = true;
+  try {
+    const settings = await api('/settings/browser','PUT',{
+      channel:$('browser-channel').value,remember_session:$('remember-session').checked});
+    showBrowserSettings(settings);
+    $('notice').textContent = 'Navigateur configuré. Cliquez sur Ouvrir le navigateur. Ce réglage ne garantit pas l’acceptation de la connexion par le site.';
+  } catch(error) { notice(error); }
+  finally { browserSaving = false; $('save-browser').disabled = busy; }
+};
+$('open-browser').onclick = async () => {
+  if (busy || browserSaving) return;
+  browserSaving = true;
+  $('open-browser').disabled = true;
+  try { showBrowserSettings(await api('/browser/open','POST')); }
+  catch(error) { notice(error); }
+  finally { browserSaving = false; $('open-browser').disabled = busy; }
+};
 async function init() {
   try {
     token = (await api('/session')).token;
+    const version = await api('/version');
+    $('app-version').textContent = 'LOCAL WORKSPACE · v' + version.version;
+    if (version.version !== '1.3.0') notice(new Error('Interface 1.3.0 / backend ' + version.version + ' : fermez l’ancienne console, relancez depuis le dossier mis à jour et faites Ctrl+F5.'));
+    showBrowserSettings(await api('/settings/browser'));
     showPermissions((await api('/settings/permissions')).mode);
     await history();
     const state = await api('/state');

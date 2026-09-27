@@ -2,24 +2,55 @@
 
 from fastapi import APIRouter, HTTPException, Query, Response
 
-from core.models import Approval, PermissionSettings, Preference, TaskRequest
+from browser.errors import BrowserUnavailable
+from core.models import Approval, BrowserSettings, PermissionSettings, Preference, TaskRequest
+from core.version import VERSION
 from vision.screenshot_processor import capture
 
 
 def create_router(manager, storage, memory, browser, llm, files):
     api = APIRouter(prefix="/api")
 
+    @api.get("/version")
+    async def version():
+        return {"version": VERSION}
+
+    @api.get("/settings/browser")
+    async def browser_settings():
+        return browser.configuration()
+
+    @api.put("/settings/browser")
+    async def configure_browser(body: BrowserSettings):
+        try:
+            return await manager.configure_browser(body)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @api.post("/browser/open")
+    async def open_browser():
+        try:
+            return await manager.open_browser()
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except BrowserUnavailable as exc:
+            raise HTTPException(503, str(exc)) from exc
+
     @api.get("/health")
     async def health():
         try:
             ollama = await llm.health()
-            return {"ollama": ollama, "browser": browser.context is not None}
+            return {"ollama": ollama, "browser": browser.is_running()}
         except Exception:
             return {"ollama": {"available": False, "error": "Ollama inaccessible"}, "browser": False}
 
     @api.get("/state")
     async def state():
-        return {**manager.state(), "tabs": browser.tab_state()}
+        return {
+            **manager.state(),
+            "tabs": browser.tab_state(),
+            "browser": browser.configuration(),
+            "version": VERSION,
+        }
 
     @api.get("/settings/permissions")
     async def permissions():
@@ -79,7 +110,7 @@ def create_router(manager, storage, memory, browser, llm, files):
 
     @api.put("/preferences/{key}")
     async def preference(key: str, body: Preference):
-        if key == "permission_mode":
+        if key in {"permission_mode", "browser_channel", "remember_session"}:
             raise HTTPException(422, "Utilisez le réglage de permissions dédié")
         if len(key) > 100:
             raise HTTPException(422, "Clé trop longue")

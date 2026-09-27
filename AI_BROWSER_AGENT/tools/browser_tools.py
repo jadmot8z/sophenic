@@ -1,5 +1,8 @@
+from playwright.async_api import Error as PlaywrightError
+
 from browser.click_engine import click
 from browser.dom_parser import DESCRIBE_JS
+from browser.errors import BrowserActionInterrupted
 from browser.navigation_manager import navigate
 from browser.typing_engine import press_key, type_text
 from tools.web_search import search_url
@@ -10,6 +13,19 @@ class BrowserTools:
         self.browser, self.files = browser, files
 
     async def execute(self, action):
+        # Do not use ensure_page() here: an approved action belongs to its observed page.
+        page = self.browser.current()
+        try:
+            return await self._execute(action)
+        except PlaywrightError:
+            if page.is_closed() or not self.browser.is_running():
+                raise BrowserActionInterrupted(
+                    "Le navigateur a été fermé pendant l’action. Son effet sur le site est incertain ; "
+                    "vérifiez le résultat avant toute nouvelle tentative."
+                ) from None
+            raise
+
+    async def _execute(self, action):
         b, kind = self.browser, action.action
         page = b.current()
         if kind in {"open_url", "search"}:
@@ -26,9 +42,8 @@ class BrowserTools:
                 await b.page.bring_to_front()
             else:
                 await b.tabs[action.target].close()
-                if not any(not p.is_closed() for p in b.tabs.values()):
-                    await b.context.new_page()
-                b.current()
+                # The next observation recreates a page if this was the last tab.
+                # No stale current() access after closing the last browser window.
         elif kind in {"back", "forward", "refresh"}:
             method = {"back": page.go_back, "forward": page.go_forward, "refresh": page.reload}[kind]
             await method(wait_until="domcontentloaded")

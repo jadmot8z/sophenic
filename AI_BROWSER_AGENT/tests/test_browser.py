@@ -47,3 +47,49 @@ async def test_real_chromium(tmp_path):
             await tools.execute(Action(action="open_url", url="http://127.0.0.1:8765/api/session"))
     finally:
         await browser.close()
+
+
+async def test_real_last_tab_and_browser_close_recovery(tmp_path):
+    browser = ChromiumController(Settings(data_dir=tmp_path, headless=True))
+    try:
+        await browser.start()
+        first = browser.current()
+        await first.close()
+        observation = await browser.observe()
+        assert observation["url"] == "about:blank"
+        assert browser.current() is not first
+        generation = browser.generation
+        await browser.browser.close()
+        observation = await browser.observe()
+        assert observation["url"] == "about:blank"
+        assert browser.generation > generation
+        assert len(browser.tab_state()) == 1
+    finally:
+        await browser.close()
+
+
+async def test_real_dedicated_session_cookie_persistence(tmp_path):
+    import time
+
+    browser = ChromiumController(Settings(data_dir=tmp_path, headless=True, remember_session=True))
+    try:
+        await browser.start()
+        await browser.context.add_cookies(
+            [
+                {
+                    "name": "test_session",
+                    "value": "not-a-real-login",
+                    "domain": "example.com",
+                    "path": "/",
+                    "expires": int(time.time()) + 86400,
+                    "secure": True,
+                    "sameSite": "Lax",
+                }
+            ]
+        )
+        await browser.close()
+        await browser.start()
+        cookies = await browser.context.cookies("https://example.com")
+        assert any(c["name"] == "test_session" and c["value"] == "not-a-real-login" for c in cookies)
+    finally:
+        await browser.close()

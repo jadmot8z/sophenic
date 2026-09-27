@@ -18,6 +18,7 @@ def components(tmp_path, actions):
     llm.health = AsyncMock(return_value={"available": True})
     llm.structured = AsyncMock(side_effect=[Plan(steps=["Observer puis répondre"]), *actions])
     page = Mock(url="https://example.com")
+    page.is_closed.return_value = False
     browser = Mock()
     browser.current.return_value = page
     browser.lock = asyncio.Lock()
@@ -255,5 +256,70 @@ async def test_wrong_year_search_is_not_executed(tmp_path):
         await AgentEngine(*args, "t").run("vol Paris Marrakech 20 au 30 août 2027")
         args[3].execute.assert_awaited_once_with(good)
         assert args[4].tasks()[0]["status"] == "completed"
+    finally:
+        args[4].close()
+
+
+async def test_closed_page_during_thinking_does_not_execute_stale_action(tmp_path):
+    from browser.errors import BrowserUnavailable
+
+    args = components(
+        tmp_path, [Action(action="click", target="e1"), Action(action="finish", answer="Page relue")]
+    )
+    args[4].create_task("t", "recherche")
+    page = args[2].current.return_value
+    args[2].current.side_effect = [page, BrowserUnavailable("Onglet fermé"), page]
+    try:
+        await AgentEngine(*args, "t").run("recherche")
+        args[3].execute.assert_not_awaited()
+        assert args[4].tasks()[0]["status"] == "completed"
+        assert any(e["kind"] == "recovery" for e in args[4].events("t"))
+    finally:
+        args[4].close()
+
+
+async def test_interrupted_send_requests_verification_even_in_always_accept(tmp_path):
+    from browser.errors import BrowserActionInterrupted
+
+    args = components(tmp_path, [Action(action="click", target="e1", impact="send")])
+    args[4].create_task("t", "Envoyer")
+    args[3].execute.side_effect = BrowserActionInterrupted("Résultat incertain")
+    args[2].ensure_page = AsyncMock()
+    engine = AgentEngine(*args, "t")
+    engine.decision.permission_mode = "always_accept"
+    pending = asyncio.Event()
+    engine.decision.emit = lambda kind, data: pending.set() if kind == "intervention" else None
+    job = asyncio.create_task(engine.run("Envoyer"))
+    try:
+        await asyncio.wait_for(pending.wait(), 2)
+        assert "peut-être déjà" in engine.decision.pending["message"]
+        engine.decision.resolve(engine.decision.pending["id"], False)
+        await job
+        args[3].execute.assert_awaited_once()
+        assert args[4].tasks()[0]["status"] == "cancelled"
+    finally:
+        if not job.done():
+            job.cancel()
+            try:
+                await job
+            except asyncio.CancelledError:
+                pass
+        args[4].close()
+
+
+async def test_explicit_google_refusal_is_not_a_login_retry_loop(tmp_path):
+    args = components(tmp_path, [])
+    args[4].create_task("t", "Ouvrir Gmail")
+    args[2].observe.return_value = {
+        "url": "https://accounts.google.com/signin",
+        "text": "This browser or app may not be secure.",
+        "elements": [],
+        "errors": [],
+    }
+    try:
+        await AgentEngine(*args, "t").run("Ouvrir Gmail")
+        assert args[4].tasks()[0]["status"] == "needs_attention"
+        assert args[1].structured.await_count == 1  # Plan only, no repeated login decisions.
+        args[3].execute.assert_not_awaited()
     finally:
         args[4].close()

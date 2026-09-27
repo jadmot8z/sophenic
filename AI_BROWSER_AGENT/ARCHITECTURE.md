@@ -60,6 +60,22 @@ sont hachés par HMAC avec une clé éphémère par analyseur ; les valeurs brut
 `LoopDetected` est récupérable : deux plans alternatifs, puis intervention. Les limites d'étapes et de
 durée restent actives ; `needs_attention` signale une tâche incomplète.
 
+### Cycle de vie navigateur (1.3)
+
+`ensure_page()` est la seule opération de récupération : verrou de cycle de vie, sélection d'un onglet
+restant, création d'une page vierge ou relance de contexte, deux tentatives maximum. `current()` reste
+strict pour ne jamais déplacer une commande approuvée vers une autre page. `observe()` peut réessayer
+une lecture, mais `BrowserTools.execute()` ne rejoue pas une action interrompue. Les onglets crashés sont
+exclus. La génération de navigateur et l'identité de la page sont vérifiées aux frontières observation /
+décision / exécution. Une fermeture au milieu d'une action produit `BrowserActionInterrupted` et une
+intervention manuelle avant toute continuation.
+
+Les canaux officiels Playwright `chrome` / `msedge` sont optionnels. Le mode persistant utilise seulement
+un sous-dossier dédié du stockage de l'application, pas un profil personnel ni un port CDP public. Les
+réglages sont sauvegardés dans SQLite, avec un garde empêchant une tâche de démarrer pendant une
+reconfiguration/ouverture. La version de code s'expose via `/api/version` pour diagnostiquer les anciens
+processus restés ouverts. Les états du contrôleur et compteurs de récupération sont affichés dans l'UI.
+
 ## Contrat des outils
 
 ```json
@@ -102,6 +118,9 @@ Champs supplémentaires refusés. Le schéma complet se trouve dans `core/models
 
 | Méthode | Route | Rôle |
 |---|---|---|
+| GET | `/api/version` | Version exacte du backend exécuté |
+| GET / PUT | `/api/settings/browser` | Navigateur et profil dédié, modification hors tâche |
+| POST | `/api/browser/open` | Ouvrir une fenêtre hors tâche pour intervention manuelle |
 | GET | `/api/session` | Jeton anti-CSRF de cette exécution |
 | GET | `/api/health` | Disponibilité d'Ollama et du modèle |
 | GET / PUT | `/api/settings/permissions` | Mode ; `always_accept` exige `accept_sensitive_risk: true` |

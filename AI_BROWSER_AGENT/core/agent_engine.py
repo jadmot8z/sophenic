@@ -2,7 +2,9 @@ import asyncio
 import logging
 from urllib.parse import urlsplit
 
+from browser.errors import BrowserActionInterrupted, BrowserUnavailable
 from core.action_policy import needs_human_credentials
+from core.authentication import browser_login_refused
 from core.decision_system import DecisionSystem, LoopDetected, LoopGuard
 from core.models import Action
 from core.planner import Planner
@@ -102,11 +104,41 @@ class AgentEngine:
         reasoning = ReasoningLoop(self.llm)
         errors = 0
         recoveries = 0
+        browser_recovery = 0
         for step in range(self.settings.max_steps):
             self.stage("OBSERVE")
-            async with self.browser.lock:
-                observation = await self.browser.observe()
+            try:
+                async with self.browser.lock:
+                    observation = await self.browser.observe()
+                    observed_page = self.browser.current()
+            except BrowserUnavailable as exc:
+                request = Action(
+                    action="ask_user", value=str(exc) + " Corrigez le problème puis reprenez, ou annulez."
+                )
+                if not await self._human_pause(request, {"url": ""}):
+                    self.storage.update_task(self.task_id, "cancelled", "Récupération navigateur annulée")
+                    self.emit("cancelled", {"reason": "Récupération navigateur annulée"})
+                    return
+                continue
+            if observation.get("recovery_count", 0) > browser_recovery:
+                browser_recovery = observation["recovery_count"]
+                self.emit("recovery", {"message": observation.get("recovery_message", "Navigateur récupéré")})
+                recent.add(
+                    {"action": "browser_recovery"},
+                    {"message": "Nouvel état navigateur ; aucune commande rejouée."},
+                )
             observation["upload_files"] = self.tools.files.list_files()
+            if browser_login_refused(observation):
+                message = (
+                    "Google affiche un refus de connexion lié à ce navigateur. Une nouvelle tentative "
+                    "identique ne le résoudra pas. La tâche est arrêtée comme incomplète. "
+                    "Vous pouvez configurer Chrome ou Edge installé pour une nouvelle tentative, sans "
+                    "garantie d’acceptation. Si le refus persiste, utilisez votre navigateur normal ou "
+                    "une intégration officielle du service. Aucune protection n’a été désactivée."
+                )
+                self.storage.update_task(self.task_id, "needs_attention", message)
+                self.emit("attention", {"message": message})
+                return
             # Passwords and Google authentication never go through the model or chat.
             host = (urlsplit(observation["url"]).hostname or "").lower()
             login_page = host == "accounts.google.com" or any(
@@ -117,7 +149,7 @@ class AgentEngine:
                     action="ask_user",
                     value=(
                         "Une authentification ou un champ secret est affiché. Connectez-vous ou complétez "
-                        "cette étape vous-même dans la fenêtre Chromium, puis cliquez sur J’ai terminé. "
+                        "cette étape vous-même dans la fenêtre du navigateur piloté, puis cliquez sur J’ai terminé. "
                         "Ne saisissez pas de mot de passe dans ce chat. Si le site refuse ce navigateur, "
                         "arrêtez la tâche et indiquez le message de blocage."
                     ),
@@ -131,7 +163,7 @@ class AgentEngine:
                     action = Action(
                         action="ask_user",
                         value=(
-                            "Complétez le mot de passe ou le code de vérification directement dans Chromium, "
+                            "Complétez le mot de passe ou le code de vérification directement dans le navigateur piloté, "
                             "puis cliquez sur J’ai terminé. Ne partagez pas ce secret dans le chat."
                         ),
                     )
@@ -172,7 +204,7 @@ class AgentEngine:
                 action = Action(
                     action="ask_user",
                     value=(
-                        "La page reste bloquée malgré deux changements de stratégie. Vérifiez Chromium : "
+                        "La page reste bloquée malgré deux changements de stratégie. Vérifiez le navigateur piloté : "
                         "une connexion, un CAPTCHA ou une fenêtre du site peut nécessiter votre intervention. "
                         "Vous pouvez débloquer la page puis reprendre, donner une autre source, ou annuler."
                     ),
@@ -203,7 +235,14 @@ class AgentEngine:
                 self.storage.update_task(self.task_id, "completed", action.answer)
                 self.emit("answer", {"text": action.answer})
                 return
-            approved_page = self.browser.current()
+            try:
+                approved_page = self.browser.current()
+                if approved_page is not observed_page or approved_page.url != observation["url"]:
+                    raise BrowserUnavailable("L’onglet a changé pendant la décision ; nouvelle observation.")
+            except BrowserUnavailable as exc:
+                self.emit("recovery", {"message": str(exc)})
+                recent.add({"action": "browser_recovery"}, {"executed": False, "error": str(exc)})
+                continue
             self.stage("AUTHORIZE")
             approved = await self.decision.authorize(action, observation)
             if not approved:
@@ -212,15 +251,35 @@ class AgentEngine:
                 self.emit("cancelled", {"reason": "Action refusée"})
                 return
             self.stage("ACT")
+            action_started = False
             try:
                 async with self.browser.lock:
                     if self.browser.current() is not approved_page or approved_page.url != observation["url"]:
                         raise ValueError(
                             "La page a changé depuis la demande de confirmation ; action annulée"
                         )
+                    action_started = True
                     result = await self.tools.execute(action)
+                    # Verify only in the same live page. A blank recovered page is not evidence of success.
+                    if action.action != "close_tab" and (
+                        not self.browser.is_running()
+                        or approved_page.is_closed()
+                        or self.browser.current().is_closed()
+                    ):
+                        raise BrowserActionInterrupted(
+                            "Le navigateur a disparu après l’action ; vérifiez son résultat avant de continuer."
+                        )
                     self.stage("VERIFY")
+                    generation = observation.get("browser_generation")
                     verified = await self.browser.observe()
+                    if (
+                        action.action != "close_tab"
+                        and generation is not None
+                        and generation != verified.get("browser_generation")
+                    ):
+                        raise BrowserActionInterrupted(
+                            "Le navigateur a été relancé pendant la vérification ; résultat de l’action inconnu."
+                        )
                 result.update(
                     {
                         "url": safe_url(verified["url"]),
@@ -233,16 +292,47 @@ class AgentEngine:
                 errors += 1
                 # Include useful validation errors, but not potentially sensitive browser call logs.
                 error = str(exc)[:500] if isinstance(exc, ValueError) else type(exc).__name__
-                result = {"ok": False, "error": error}
+                result = {
+                    "ok": False,
+                    "error": error,
+                    "uncertain": isinstance(exc, BrowserActionInterrupted)
+                    or (action_started and isinstance(exc, BrowserUnavailable)),
+                }
                 self.memory.learn_error(action.action, error)
             self.stage("MEMORY")
             recent.add(public_action(action), result)
             self.emit("result", result)
+            if result.get("uncertain"):
+                request = Action(
+                    action="ask_user",
+                    value=(
+                        "Le navigateur a disparu pendant ou juste après une action. Celle-ci a peut-être déjà "
+                        "été effectuée sur le site. Vérifiez notamment tout envoi ou paiement avant de reprendre. "
+                        "Aucune commande n’est rejouée automatiquement. Indiquez ce que vous avez constaté, ou annulez."
+                    ),
+                )
+                # Restore infrastructure for manual inspection, never the interrupted command/URL.
+                async with self.browser.lock:
+                    await self.browser.ensure_page()
+                if not await self._human_pause(request, observation):
+                    self.storage.update_task(self.task_id, "cancelled", "Résultat incertain ; arrêt demandé")
+                    self.emit("cancelled", {"reason": "Résultat incertain ; aucune action rejouée"})
+                    return
+                recent.add(
+                    {"action": "manual_verification"},
+                    {
+                        "user_response": self.decision.response,
+                        "instruction": "Vérifie le résultat réel ; ne renvoie jamais une transaction par défaut.",
+                    },
+                )
+                errors = 0
+                guard = LoopGuard()
+                continue
             if not result["ok"] and errors >= 3:
                 request = Action(
                     action="ask_user",
                     value=(
-                        "Le navigateur rencontre plusieurs erreurs. Vérifiez l’onglet Chromium ; "
+                        "Le navigateur rencontre plusieurs erreurs. Vérifiez l’onglet du navigateur piloté ; "
                         "corrigez le blocage puis reprenez, ou annulez la tâche."
                     ),
                 )

@@ -14,6 +14,8 @@ class TaskManager:
             saved_mode if saved_mode in {"always_ask", "sensitive", "always_accept"} else "sensitive"
         )
         self.engine = self.job = None
+        self.browser_configuring = False
+        self.stop_lock = asyncio.Lock()
         # Crash recovery never resumes side effects without user consent.
         storage.recover_tasks()
 
@@ -28,11 +30,40 @@ class TaskManager:
             if self.busy():
                 self.engine.emit("permission_mode", {"mode": mode})
 
+    async def configure_browser(self, config):
+        if self.busy() or self.browser_configuring:
+            raise ValueError("Arrêtez la tâche avant de changer de navigateur")
+        self.browser_configuring = True
+        try:
+            browser = self.args[2]
+            async with browser.lock:
+                await browser.close()
+                browser.settings.browser_channel = config.channel
+                browser.settings.remember_session = config.remember_session
+                self.memory.set_preference("browser_channel", config.channel)
+                self.memory.set_preference("remember_session", "1" if config.remember_session else "0")
+            return browser.configuration()
+        finally:
+            self.browser_configuring = False
+
+    async def open_browser(self):
+        if self.busy() or self.browser_configuring:
+            raise ValueError("Le navigateur est déjà contrôlé par une tâche ; utilisez sa fenêtre existante")
+        self.browser_configuring = True
+        try:
+            browser = self.args[2]
+            async with browser.lock:
+                await browser.ensure_page()
+                await browser.current().bring_to_front()
+            return browser.configuration()
+        finally:
+            self.browser_configuring = False
+
     def busy(self):
         return self.job is not None and not self.job.done()
 
     def start(self, goal):
-        if self.busy():
+        if self.busy() or self.browser_configuring:
             raise ValueError("Une tâche est déjà en cours")
         identifier = uuid.uuid4().hex
         self.storage.create_task(identifier, goal)
@@ -43,18 +74,24 @@ class TaskManager:
         return identifier
 
     async def stop(self):
-        if self.busy():
-            self.job.cancel()
-            try:
-                await self.job
-            except asyncio.CancelledError:
-                pass
-            finally:
-                if self.engine.phase == "queued":
-                    self.storage.update_task(self.engine.task_id, "cancelled", "Arrêt avant démarrage")
-                    self.engine.phase = "idle"
-                # Closing Chromium prevents further page-side work after cancellation.
-                await self.args[2].close()
+        async with self.stop_lock:
+            if self.busy():
+                self.browser_configuring = True
+                job, engine = self.job, self.engine
+                job.cancel()
+                try:
+                    await job
+                except asyncio.CancelledError:
+                    pass
+                finally:
+                    try:
+                        if engine.phase == "queued":
+                            self.storage.update_task(engine.task_id, "cancelled", "Arrêt avant démarrage")
+                            engine.phase = "idle"
+                        # No new task may start while the previous browser is closing.
+                        await self.args[2].close()
+                    finally:
+                        self.browser_configuring = False
 
     def state(self):
         return {

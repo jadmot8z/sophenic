@@ -61,7 +61,27 @@ Google peut être refusée par Google ; l'agent ne contourne pas cette protectio
    processus local malveillant ou un utilisateur ayant accès à la session peut contrôler l'application.
    Ne pas l'exposer sur Internet, ne pas supprimer les protections Host pour publier un aperçu partagé.
 7. **Pas de protection universelle des comptes.** Utiliser un profil éphémère et un compte de test, sans
-   accès bancaire ou administratif. Cookies partagés entre tâches jusqu'à fermeture de Chromium.
+   accès bancaire ou administratif. Cookies partagés entre tâches ; si le profil persistant est activé,
+   ils peuvent survivre à la fermeture du navigateur. Associer une session authentifiée et « Toujours
+   accepter » donne au modèle la capacité d'agir sans validation dans ces comptes : risque élevé.
 
 Pour une utilisation à risque, privilégier une VM dédiée, comptes jetables et absence de secrets dans
 le système invité. Signaler les défauts de sécurité sans inclure de jetons, cookies ou données personnelles.
+
+## Profils et récupération dans 1.3
+
+Le profil dédié réside dans `data/browser_profiles/<channel>` ; il n'est pas inclus dans le ZIP ou Git.
+Il peut contenir cookies, historique, cache et autres données de navigation. Le stockage du navigateur
+suit ses mécanismes propres ; l'application n'ajoute pas de chiffrement de profil. Protégez le compte
+Windows et ses sauvegardes. Désactiver la persistance ne supprime pas un profil enregistré.
+
+Chrome/Edge officiel ne rend pas légitime un contournement d'authentification. Aucun camouflage de
+l'automatisation, `ignore_https_errors`, désactivation TLS, import de cookies personnels ou changement
+de `navigator.webdriver` n'est introduit. Les refus de connexion doivent être respectés.
+
+Une page fermée n'est pas une preuve d'échec d'une opération : la requête peut avoir atteint le site.
+La récupération ne rejoue jamais de commande ni de navigation automatiquement. Une interruption pendant
+une action demande une vérification humaine même en mode sans confirmations. La récupération ne garantit
+pas une sémantique « exactement une fois » sur un service web ; n'utilisez pas de transaction réelle
+comme premier test. Les profils de navigateur peuvent par ailleurs appliquer leurs propres réglages
+de restauration d'onglets au démarrage ; l'application ne peut pas annuler un effet déjà reçu par un site.
