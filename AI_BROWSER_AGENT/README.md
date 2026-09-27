@@ -1,4 +1,4 @@
-# AI Browser Agent — 1.3.0
+# AI Browser Agent — 1.3.1
 
 Application locale pour Windows 10/11 : **FastAPI + Playwright/Chromium + Ollama `qwen3:14b`**.
 L'interface de bureau s'ouvre dans votre navigateur sur `http://127.0.0.1:8765` ; le navigateur
@@ -15,7 +15,7 @@ simulé, réponse de démonstration ou exécution de code produit par le modèle
 1. Installer **Python 3.12 ou plus récent**, avec le lanceur Windows `py`.
 2. Installer [Ollama pour Windows](https://ollama.com/download/windows).
 3. Exécuter `launcher\installer.bat` depuis l'Explorateur. Ce script crée un environnement
-   virtuel, installe l'application et télécharge Chromium avec Playwright.
+   virtuel, installe les dépendances et télécharge Chromium avec Playwright.
 4. Exécuter `launcher\lancer.bat`. Il vérifie Python, le port local, Ollama et `qwen3:14b`,
    démarre le service Ollama si nécessaire et propose le téléchargement du modèle s'il est absent.
 5. Attendre l'ouverture de l'interface et soumettre une tâche.
@@ -39,6 +39,37 @@ Après installation, démarrage manuel (depuis ce dossier) :
 
 Pas de `--reload`, pas de workers multiples : Playwright sous Windows exige une boucle
 Proactor avec support des sous-processus. Le lanceur backend la configure explicitement.
+
+### Installation source et fichier verrouillé (1.3.1)
+
+`installer.bat` lance `launcher/install.py` avec le Python global sélectionné par `py`. L'installateur
+lit les dépendances dans `pyproject.toml` et les installe dans `.venv`, sans `pip install -e .` : le
+lanceur exécute déjà les modules directement depuis le dossier du projet. Il n'est pas nécessaire de
+désinstaller le paquet `ai-browser-agent` d'une ancienne installation. Son ancien `dist-info` peut
+rester présent sans être utilisé pour déterminer la version exécutée : fiez-vous à `/api/version` et
+à la version source affichée, pas à `pip show ai-browser-agent`.
+
+L'installateur affiche le chemin et la version du dossier, contrôle le port 8765, signale les processus
+Windows visibles dont le chemin/commande utilise ce `.venv`, et prend un verrou d'installation local.
+Aucun processus n'est tué et aucun environnement ni donnée n'est supprimé. La détection des processus
+peut être indisponible selon les droits Windows ; elle ne détecte pas tous les verrous possibles
+(antivirus, indexeur, éditeur, etc.). Le lanceur refuse une installation déjà en cours au moment de sa vérification.
+
+Si vous voyez `WinError 32` et `ai-browser-agent==1.1.0` :
+
+1. Arrêtez le backend avec **Ctrl+C dans sa console**, puis fermez ses fenêtres. Fermer l'onglet de
+   l'interface ne suffit pas à arrêter Python. N'arrêtez pas tous les processus Python sans les identifier.
+2. Téléchargez le ZIP **AI_BROWSER_AGENT-Windows-1.3.1.zip** et extrayez-le dans un **nouveau dossier**.
+   Ne réutilisez pas le dossier de téléchargement `(1)` qui contient encore la version 1.1.
+3. Lancez le nouvel `installer.bat` et vérifiez **Version source : 1.3.1**. Il crée un environnement neuf.
+   Ne copiez pas l'ancien `.venv` dans ce nouveau dossier : les environnements virtuels ne sont pas portables.
+4. Pour conserver l'historique, copiez seulement l'ancien `data` vers le nouveau dossier, avec toutes les
+   instances de l'application et leurs navigateurs fermés. Les profils/cookies de `data` sont privés.
+5. Lancez le nouveau `lancer.bat`, puis faites **Ctrl+F5** dans l'interface.
+
+Si un verrou persiste malgré l'arrêt, redémarrez Windows avant de relancer l'installation. Le mode
+administrateur n'est pas un remède général à un fichier utilisé par un autre processus. Ne désactivez
+pas les protections de Windows ou l'antivirus pour installer l'application.
 
 ### Matériel et performances
 
@@ -163,7 +194,7 @@ un navigateur automatisé : ce blocage réel doit être signalé, il n'est pas c
 Fermez le backend (Ctrl+C dans sa console). Sauvegardez votre dossier `data`, puis extrayez le nouveau
 ZIP et copiez son contenu dans le dossier `AI_BROWSER_AGENT` existant en remplaçant les fichiers du
 programme. **Ne supprimez pas `data` ni `.venv`**. Relancez `installer.bat`, puis `lancer.bat`, et faites
-**Ctrl+F5** sur l'interface. Vérifiez **v1.3.0** en haut à gauche (API `/api/version`). Si elle
+**Ctrl+F5** sur l'interface. Vérifiez **v1.3.1** en haut à gauche (API `/api/version`). Si elle
 n’apparaît pas, une ancienne console ou un autre dossier est encore utilisé. Les anciens messages
 d’erreur restent dans l’historique ; testez une nouvelle tâche. Les anciennes tâches ne sont pas rejouées : démarrez une nouvelle demande.
 

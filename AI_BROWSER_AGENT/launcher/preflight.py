@@ -7,6 +7,8 @@ import subprocess
 import time
 from urllib.request import ProxyHandler, build_opener
 
+from install_support import ROOT, installation_lock, project_metadata
+
 opener = build_opener(ProxyHandler({}))
 url = os.environ.get("AIBA_OLLAMA_URL", "http://127.0.0.1:11434")
 
@@ -17,6 +19,10 @@ def tags():
 
 
 def main():
+    print(f"Dossier lance : {ROOT}")
+    print(f"Version source : {project_metadata()['version']}")
+    with installation_lock():
+        pass  # Refuse startup while this project's installer holds its lock.
     with socket.socket() as sock:
         try:
             sock.bind(("127.0.0.1", 8765))

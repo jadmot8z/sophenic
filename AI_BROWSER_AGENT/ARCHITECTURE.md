@@ -148,3 +148,12 @@ Les entrées web non fiables sont séparées des instructions système dans les 
 pas une preuve de résistance à toutes les injections. La nouvelle observation vérifie l'effet matériel
 mais pas une vérité sémantique universelle. Ne confondez pas une action Playwright terminée avec une
 commande commerciale confirmée. Les succès, blocages et limites doivent figurer dans la réponse finale.
+
+## Installateur source (1.3.1)
+
+`launcher/install.py` utilise uniquement la bibliothèque standard avant l'installation des dépendances.
+Il lit les exigences dans `pyproject.toml`, crée `.venv` si absent, vérifie Python, installe les bibliothèques
+et Chromium. Il n'installe plus le projet lui-même en editable : l'exécution se fait depuis la racine du
+code source, ce qui évite une désinstallation de métadonnées propre au paquet à chaque mise à jour.
+`install_support.py` gère diagnostic de processus Windows limité à l'environnement, écoute du port local
+et verrou OS. Les PID sont affichés, jamais tués automatiquement ; les données utilisateur sont conservées.

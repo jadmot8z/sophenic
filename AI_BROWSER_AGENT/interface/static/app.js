@@ -141,7 +141,7 @@ async function init() {
     token = (await api('/session')).token;
     const version = await api('/version');
     $('app-version').textContent = 'LOCAL WORKSPACE · v' + version.version;
-    if (version.version !== '1.3.0') notice(new Error('Interface 1.3.0 / backend ' + version.version + ' : fermez l’ancienne console, relancez depuis le dossier mis à jour et faites Ctrl+F5.'));
+    if (version.version !== '1.3.1') notice(new Error('Interface 1.3.1 / backend ' + version.version + ' : fermez l’ancienne console, relancez depuis le dossier mis à jour et faites Ctrl+F5.'));
     showBrowserSettings(await api('/settings/browser'));
     showPermissions((await api('/settings/permissions')).mode);
     await history();

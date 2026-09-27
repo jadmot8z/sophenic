@@ -1,3 +1,13 @@
+# 1.3.1 — 27 septembre 2026
+
+- Correctif installateur Windows : installation des dépendances sans auto-réinstallation editable du projet,
+  pour éviter la suppression inutile du `ai_browser_agent-*.dist-info/INSTALLER` signalé verrouillé.
+- Version et dossier source affichés avant installation et lancement ; archive nommée par version.
+- Vérification du backend actif et des processus visibles de ce `.venv`, sans arrêt forcé.
+- Verrou OS contre deux installations concurrentes ; préflight refuse l'installation en cours.
+- Pas de suppression de `.venv`, des données, ni de mise à jour automatique de pip.
+- 104 tests unitaires/API réussis ; le verrou Windows réel et la détection PowerShell restent à vérifier sur Windows.
+
 # 1.3.0 — 27 septembre 2026
 
 - Récupération bornée des onglets fermés, contextes déconnectés et pages crashées, avec invalidation des cibles.

@@ -63,7 +63,7 @@ def test_browser_settings_and_version(tmp_path):
     settings = Settings(data_dir=tmp_path)
     with TestClient(create_app(settings), base_url="http://127.0.0.1:8765") as client:
         headers = {"X-Agent-Token": client.get("/api/session").json()["token"]}
-        assert client.get("/api/version").json()["version"] == "1.3.0"
+        assert client.get("/api/version").json()["version"] == "1.3.1"
         assert client.get("/api/settings/browser").json()["channel"] == "chromium"
         assert client.put("/api/settings/browser", json={"channel": "chrome"}).status_code == 403
         assert (

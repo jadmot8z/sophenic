@@ -1,6 +1,6 @@
 # Rapport de validation
 
-Date : 27 septembre 2026 — version 1.3.0.
+Date : 27 septembre 2026 — version 1.3.1.
 
 ## Exécuté dans l'environnement de développement
 
@@ -8,7 +8,7 @@ Environnement disponible : Linux, Python **3.11.2**. Le projet et ses lanceurs c
 Les dépendances ont été installées directement pour pouvoir vérifier le code dans cet environnement ;
 cela ne remplace pas la recette avec la version Python déclarée dans `pyproject.toml`.
 
-- `pytest -q --ignore=tests/test_browser.py` : **98 tests réussis**.
+- `pytest -q --ignore=tests/test_browser.py` : **104 tests réussis**.
 - `ruff check .` : réussi.
 - `ruff format --check .` : réussi.
 - Compilation des modules Python : réussie.
@@ -119,3 +119,19 @@ ou paiement réel n’a été effectué dans l’environnement de développement
 8. Si Google affiche un refus « navigateur non sécurisé », arrêter ce parcours ; ne pas désactiver TLS
    ou les protections. Tester séparément l'accès dans le navigateur normal et envisager une API officielle.
 9. Exécuter tous les tests, dont `tests/test_browser.py`, après installation effective de Chromium.
+
+## Correctif installateur 1.3.1
+
+Le journal utilisateur indique un échec de désinstallation du fichier `INSTALLER` (WinError 32) et une
+source `ai-browser-agent==1.1.0`. Il ne permet pas d'identifier avec certitude le processus responsable
+du verrou. Le correctif retire l'auto-installation editable inutile en exécution source, et ajoute des
+contrôles préalables. Il ne prétend pas lever arbitrairement les verrous détenus par d'autres logiciels.
+
+Six tests supplémentaires : absence de commande `-e`/désinstallation de l'application et conservation
+de l'ancienne métadonnée, backend actif, PID signalés, verrou exclusif/libération, arrêt après échec pip
+avec préservation des données, détection d'un vrai socket d'écoute local. Les appels d'installation sont
+remplacés par des doubles ; la branche Windows msvcrt/PowerShell n'est pas exécutée dans ce Linux.
+
+Recette Windows : utiliser le ZIP 1.3.1 dans un dossier neuf avec espaces ; vérifier version/chemin ;
+tester application ouverte puis fermée ; tester deux installateurs ; confirmer que les commandes pip
+ne désinstallent plus `ai-browser-agent` ; tester lancement et contrôle `/api/version` après installation.
